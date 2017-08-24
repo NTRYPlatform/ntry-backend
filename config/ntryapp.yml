@@ -1,0 +1,8 @@
+host: localhost
+port: 9090
+db: 
+  host: localhost
+  name: ntry-user
+  password: secret
+  port: 3306
+  user: root
