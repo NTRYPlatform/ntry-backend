@@ -1,8 +1,10 @@
 host: localhost
 port: 9090
+privKeyFile: "config/ntry.rsa"
+pubKeyFile: "config/ntry.rsa.pub"
 db: 
   host: localhost
-  name: ntry-user
-  password: secret
+  name: ntry
   port: 3306
   user: root
+  password: toor

@@ -1,17 +1,21 @@
 package main
 
 import (
+	"crypto/rsa"
 	"io/ioutil"
 	"log"
 	"strconv"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	yaml "gopkg.in/yaml.v2"
 )
 
 type Config struct {
-	Host string
-	Port int
-	Db   Database
+	Host        string
+	Port        int
+	PubKeyFile  string
+	PrivKeyFile string
+	Db          Database
 }
 
 type Database struct {
@@ -23,8 +27,10 @@ type Database struct {
 }
 
 var (
-	conf *Config
-	addr string
+	conf   *Config
+	addr   string
+	pubKey *rsa.PublicKey
+	pvtKey *rsa.PrivateKey
 )
 
 /* initConfig loads config file from the configuration folder
@@ -50,14 +56,18 @@ func initConfig() {
 
 }
 
-func loadConfig() {
+func LoadConfig() {
 	if conf == nil {
 		initConfig()
+		// _ = GetServerAddress()
+		// _ = GetDatabaseSettings()
+		// _ = GetPubKey()
+		// _ = GetPvtKey()
 	}
 }
 
 func GetServerAddress() string {
-	loadConfig()
+	LoadConfig()
 	if addr == "" {
 		addr = conf.Host + ":" + strconv.Itoa(conf.Port)
 	}
@@ -65,6 +75,33 @@ func GetServerAddress() string {
 }
 
 func GetDatabaseSettings() *Database {
-	loadConfig()
+	LoadConfig()
 	return &conf.Db
+}
+
+func GetPvtKey() *rsa.PrivateKey {
+	LoadConfig()
+	if pvtKey == nil {
+		pvtBytes, err := ioutil.ReadFile(conf.PrivKeyFile)
+		if err != nil {
+			log.Fatal("Can't read key!", err)
+		}
+		pvtKey, err = jwt.ParseRSAPrivateKeyFromPEM(pvtBytes)
+		if err != nil {
+			log.Fatal("Can't read key!", err)
+		}
+	}
+	return pvtKey
+}
+
+func GetPubKey() *rsa.PublicKey {
+	LoadConfig()
+	if pubKey == nil {
+		pubBytes, err := ioutil.ReadFile(conf.PubKeyFile)
+		if err != nil {
+			log.Fatal("Can't read key!", err)
+		}
+		pubKey, err = jwt.ParseRSAPublicKeyFromPEM(pubBytes)
+	}
+	return pubKey
 }
