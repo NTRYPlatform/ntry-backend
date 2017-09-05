@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"crypto/rsa"
@@ -10,14 +10,21 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// Config struct
 type Config struct {
-	Host        string
-	Port        int
-	PubKeyFile  string
-	PrivKeyFile string
-	Db          Database
+	Host           string `yaml:"host" required:"true"`
+	Port           int    `yaml:"port" required:"true"`
+	Email          string `yaml:"email" required:"true"`
+	Password       string `yaml:"password" required:"true"`
+	EmailServer    string `yaml:"emailServer" required:"true"`
+	PubKeyFile     string `yaml:"pubKeyFile" required:"true"`
+	PrivKeyFile    string `yaml:"privKeyFile" required:"true"`
+	MapperContract string `yaml:"mapperContract" required:"true"`
+	EthIPC         string `yaml:"ethIPC" required:"true"`
+	Db             Database
 }
 
+// Database struct
 type Database struct {
 	Name     string
 	User     string
@@ -35,10 +42,11 @@ var (
 
 /* initConfig loads config file from the configuration folder
 *  panics
+*
  */
 func initConfig() {
 	//TODO: maybe the path could be a part of the command args?
-	configFile, err := ioutil.ReadFile("config/ntryapp.yml")
+	configFile, err := ioutil.ReadFile(".notaryconf/ntryapp.yml")
 
 	if err != nil {
 		log.Println("Can't read config file!", err)
@@ -48,24 +56,24 @@ func initConfig() {
 	err = yaml.Unmarshal(configFile, &conf)
 
 	if err != nil {
-		log.Println("Can't unmarshall the config properties!", err)
+		log.Printf("Can't unmarshall the config properties!\n%v", err)
 		panic("Panicking!")
 	} else {
-		log.Println("Config successfully loaded: %+v", *conf)
+		log.Printf("Config successfully loaded: %+v", *conf)
 	}
 
 }
 
+// LoadConfig initializes config
+// TODO: add once sync
+// TODO: use the init function for initializing config
 func LoadConfig() {
 	if conf == nil {
 		initConfig()
-		// _ = GetServerAddress()
-		// _ = GetDatabaseSettings()
-		// _ = GetPubKey()
-		// _ = GetPvtKey()
 	}
 }
 
+// GetServerAddress returns server address
 func GetServerAddress() string {
 	LoadConfig()
 	if addr == "" {
@@ -74,11 +82,13 @@ func GetServerAddress() string {
 	return addr
 }
 
+// GetDatabaseSettings returns Database struct
 func GetDatabaseSettings() *Database {
 	LoadConfig()
 	return &conf.Db
 }
 
+// GetPvtKey returns private key
 func GetPvtKey() *rsa.PrivateKey {
 	LoadConfig()
 	if pvtKey == nil {
@@ -94,6 +104,7 @@ func GetPvtKey() *rsa.PrivateKey {
 	return pvtKey
 }
 
+// GetPubKey returns public key
 func GetPubKey() *rsa.PublicKey {
 	LoadConfig()
 	if pubKey == nil {
@@ -104,4 +115,22 @@ func GetPubKey() *rsa.PublicKey {
 		pubKey, err = jwt.ParseRSAPublicKeyFromPEM(pubBytes)
 	}
 	return pubKey
+}
+
+// GetEmailInfo returns email, password and emailserver strings
+func GetEmailInfo() (email, password, emailServer string) {
+	LoadConfig()
+	return conf.Email, conf.Password, conf.EmailServer
+}
+
+// GetMapperContract returns mapper contracts address
+func GetMapperContract() string {
+	LoadConfig()
+	return conf.MapperContract
+}
+
+// GetEthIPC returns eth IPC endpoint
+func GetEthIPC() string {
+	LoadConfig()
+	return conf.EthIPC
 }

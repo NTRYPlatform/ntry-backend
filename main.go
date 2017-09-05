@@ -3,14 +3,15 @@ package main
 import (
 	"log"
 	"net/http"
+	"ntry-user-mgmt/config"
 
 	"github.com/gorilla/mux"
 )
 
 func main() {
 	// Load configuration
-	LoadConfig()
-	addr := GetServerAddress()
+	config.LoadConfig()
+	addr := config.GetServerAddress()
 
 	// main router
 	router := mux.NewRouter().StrictSlash(false)
@@ -19,6 +20,9 @@ func main() {
 
 	apiRouter.HandleFunc("/", Index)
 	router.HandleFunc("/sign-up", CreateUser)
+	//TODO: technically should be restricted
+	router.HandleFunc("/update-info", UpdateUserInfo)
+	router.HandleFunc("/verify-address", VerifySecondaryAddress)
 	router.HandleFunc("/sign-in", LoginHandler)
 	router.HandleFunc("/send-invitation", NotImplemented)
 

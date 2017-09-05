@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
 )
@@ -12,7 +13,7 @@ type User struct {
 	//TODO: Do we even need this, if we have the mapping?
 	EthAddress string `db:"eth_address" json:"ethAddress" binding:"required"`
 
-	PubKey string `db:"pub_key"`
+	SecondaryAddress string `db:"secondary_address" json:"secondaryAddress" binding:"required"`
 
 	Password string `db:"password" json:"password" binding:"required"`
 
@@ -28,6 +29,10 @@ type User struct {
 
 	IsEmailVerified bool `db:"email_verified" json:"emailVerified"`
 
+	RegTime time.Time `db:"reg_time" json:"regTime"`
+
+	VerificationCode string `db:"verification_code" json:"verificationCode"`
+
 	EthAddressVerification string `db:"eth_verification" json:"ethVerification"`
 }
 
@@ -42,19 +47,46 @@ type LoginUser struct {
 	Password     string `json:"password" binding:"required"`
 }
 
-//TODO
-func RegisterUser(user User) bool {
-	if UserExistsByUniqueField(&user) == true {
-		log.Println("User with either of these values already exists! %v", user)
-		return false
-	}
-	//TODO: trigger email verification
-	return InsertUser(user)
+type VerifyUserSignature struct {
+	PubKey    string `json:"pubKey" binding:"required"`
+	Signature string `json:"signature" binding:"required"`
 }
 
 //TODO
+func RegisterUser(user User) bool {
+	if UserExistsByUniqueField(&user) == true {
+		// TODO: might want to throw exception for better client-side response
+		log.Printf("User with either of these values already exists! %v\n", user)
+		return false
+	}
+	rand := RandString(40)
+	user.VerificationCode = rand
+	user.RegTime = time.Now().UTC()
+	//TODO: handle exceptions
+	inserted := InsertUser(user)
+	SendVerificationEmail(user.EmailAddress, rand)
+	return inserted
+}
+
+func CompleteUserInfo(user *User) bool {
+	err := UpdateUser(user)
+	updated := false
+	if err != nil {
+		log.Printf("Error occurred while trying to update user: %s", err)
+	} else {
+		updated = true
+	}
+	return updated
+}
+
+//TODO: change name and add checks
 func ValidateUser(user *LoginUser) *User {
 	return LoginUserValidation(user)
+}
+
+func ValidateSecondaryAddress(user *VerifyUserSignature) bool {
+	target := GetUserValidationCode(user)
+	return VerifySignature(user.PubKey, user.Signature, target)
 }
 
 //TODO

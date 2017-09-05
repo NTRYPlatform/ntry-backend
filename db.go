@@ -3,6 +3,7 @@ package main
 import (
 	"io/ioutil"
 	"log"
+	"ntry-user-mgmt/config"
 
 	db "upper.io/db.v3"
 	"upper.io/db.v3/lib/sqlbuilder"
@@ -10,7 +11,7 @@ import (
 )
 
 var (
-	c              = GetDatabaseSettings()
+	c              = config.GetDatabaseSettings()
 	ntrydb         *sqlbuilder.Database
 	userCollection *db.Collection
 	//TODO: configure max open connections/idle connections, etc...
@@ -22,7 +23,8 @@ var (
 	}
 )
 
-//TODO: will have to figure out something about the closing
+// TODO: will have to figure out something about the closing
+// and do the once thing for thread safety
 func initConnection() {
 	if ntrydb == nil {
 		sess, err := mysql.Open(settings)
@@ -92,7 +94,20 @@ func UserExistsByUniqueField(user *User) bool {
 	return exists
 }
 
-// UserExistsBy
+//TODO: This could change everything... edit so it would only change certain fields
+// UpdateUser returns boolean whether user was updated or not
+func UpdateUser(user *User) (err error) {
+	initConnection()
+	initUserCollection()
+	res := (*userCollection).Find("eth_address = ?", (*user).EthAddress)
+	err = res.Update(user)
+	if err != nil {
+		log.Println("Not cool!", err)
+	}
+	return
+}
+
+// LoginUserValidation
 func LoginUserValidation(user *LoginUser) *User {
 	initConnection()
 	initUserCollection()
@@ -103,4 +118,17 @@ func LoginUserValidation(user *LoginUser) *User {
 		log.Println("Not cool!", err)
 	}
 	return &u
+}
+
+// GetUserValidationCode
+func GetUserValidationCode(user *VerifyUserSignature) string {
+	initConnection()
+	initUserCollection()
+	u := User{}
+	res := (*userCollection).Find("secondary_address = ?", (*user).PubKey)
+	err := res.Select("verification_code").One(&u)
+	if err != nil {
+		log.Println("Not cool!", err)
+	}
+	return u.VerificationCode
 }

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"ntry-user-mgmt/config"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -47,6 +48,58 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func UpdateUserInfo(w http.ResponseWriter, r *http.Request) {
+	var user User
+	//TODO: check the limit
+	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	if err != nil {
+		panic(err)
+	}
+	if err := r.Body.Close(); err != nil {
+		panic(err)
+	}
+	if err := json.Unmarshal(body, &user); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(422) // unprocessable entity
+		if err := json.NewEncoder(w).Encode(err); err != nil {
+			panic(err)
+		}
+	}
+
+	t := CompleteUserInfo(&user)
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(t); err != nil {
+		panic(err)
+	}
+}
+
+func VerifySecondaryAddress(w http.ResponseWriter, r *http.Request) {
+	var user VerifyUserSignature
+	//TODO: check the limit
+	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	if err != nil {
+		panic(err)
+	}
+	if err := r.Body.Close(); err != nil {
+		panic(err)
+	}
+	if err := json.Unmarshal(body, &user); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(422) // unprocessable entity
+		if err := json.NewEncoder(w).Encode(err); err != nil {
+			panic(err)
+		}
+	}
+
+	t := ValidateSecondaryAddress(&user)
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(t); err != nil {
+		panic(err)
+	}
+}
+
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	var user LoginUser
@@ -78,7 +131,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			// expires in an hour
 			ExpiresAt: time.Now().Add(time.Hour * 1).Unix(),
 			//TODO: change in production - should be configurable
-			Issuer: GetServerAddress(),
+			Issuer: config.GetServerAddress(),
 		},
 	}
 
@@ -91,7 +144,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// 	fmt.Fprintln(w, "Error extracting the key")
 	// }
 
-	tokenString, err := token.SignedString(GetPvtKey())
+	tokenString, err := token.SignedString(config.GetPvtKey())
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -116,7 +169,7 @@ func ValidateTokenMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor,
 			func(token *jwt.Token) (interface{}, error) {
-				return GetPubKey(), nil
+				return config.GetPubKey(), nil
 			})
 
 		if err == nil {
@@ -158,7 +211,7 @@ func AuthMiddleware(h http.Handler) http.Handler {
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 		// Sign the token with our secret
-		tokenString, _ := token.SignedString(GetPvtKey())
+		tokenString, _ := token.SignedString(config.GetPvtKey())
 
 		log.Println(tokenString)
 		h.ServeHTTP(w, r)
