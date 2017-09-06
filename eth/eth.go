@@ -14,7 +14,7 @@ import (
 
 var (
 	once           sync.Once
-	client         ethclient
+	client         ethclient.Client
 	mapperContract string
 )
 
