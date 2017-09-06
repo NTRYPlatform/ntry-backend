@@ -1,10 +1,10 @@
-package main
+package auth
 
 import (
 	"io/ioutil"
 	"log"
-	"ntry-user-mgmt/config"
 
+	"github.com/ntryapp/auth/config"
 	db "upper.io/db.v3"
 	"upper.io/db.v3/lib/sqlbuilder"
 	"upper.io/db.v3/mysql"

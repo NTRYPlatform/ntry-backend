@@ -1,11 +1,11 @@
-package main
+package auth
 
 import (
 	"log"
-	"ntry-user-mgmt/eth"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/ntryapp/auth/eth"
 )
 
 // User is the model for the `user` table
