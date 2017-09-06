@@ -3,13 +3,13 @@ package eth
 import (
 	"log"
 	"math/big"
-	"ntry-user-mgmt/config"
 	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ntryapp/auth/config"
 )
 
 var (

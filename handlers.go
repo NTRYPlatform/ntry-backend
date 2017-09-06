@@ -1,4 +1,4 @@
-package main
+package auth
 
 import (
 	"encoding/json"
@@ -7,11 +7,11 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"ntry-user-mgmt/config"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/request"
+	"github.com/ntryapp/auth/config"
 )
 
 func Index(response http.ResponseWriter, request *http.Request) {

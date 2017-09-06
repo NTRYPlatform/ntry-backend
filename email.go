@@ -1,9 +1,10 @@
-package main
+package auth
 
 import (
 	"log"
 	"net/smtp"
-	"ntry-user-mgmt/config"
+
+	"github.com/ntryapp/auth/config"
 )
 
 func SendVerificationEmail(email, code string) {
