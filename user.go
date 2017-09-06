@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"ntry-user-mgmt/eth"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -65,6 +66,7 @@ func RegisterUser(user User) bool {
 	//TODO: handle exceptions
 	inserted := InsertUser(user)
 	SendVerificationEmail(user.EmailAddress, rand)
+	eth.MapSecondaryAddress()
 	return inserted
 }
 

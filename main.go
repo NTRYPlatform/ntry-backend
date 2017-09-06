@@ -8,9 +8,13 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func main() {
+func init() {
 	// Load configuration
 	config.LoadConfig()
+}
+
+func main() {
+
 	addr := config.GetServerAddress()
 
 	// main router
