@@ -14,7 +14,7 @@ type User struct {
 	//TODO: Do we even need this, if we have the mapping?
 	EthAddress string `db:"eth_address" json:"ethAddress" binding:"required"`
 
-	SecondaryAddress string `db:"secondary_address" json:"secondaryAddress" binding:"required"`
+	SecondaryAddress string `db:"secondary_address" json:"secondaryAddress"`
 
 	Password string `db:"password" json:"password" binding:"required"`
 
@@ -54,20 +54,26 @@ type VerifyUserSignature struct {
 }
 
 //TODO
-func RegisterUser(user User) bool {
+func RegisterUser(user User) (key string) {
 	if UserExistsByUniqueField(&user) == true {
 		// TODO: might want to throw exception for better client-side response
 		log.Printf("User with either of these values already exists! %v\n", user)
-		return false
+		return
 	}
+
+	// create new eth secondary key
+	address, key := eth.CreateAccount(user.Password)
+	user.SecondaryAddress = address
+
+	// verification
 	rand := RandString(40)
 	user.VerificationCode = rand
 	user.RegTime = time.Now().UTC()
 	//TODO: handle exceptions
-	inserted := InsertUser(user)
-	SendVerificationEmail(user.EmailAddress, rand)
-	eth.MapSecondaryAddress()
-	return inserted
+	if InsertUser(user) {
+		SendVerificationEmail(user.EmailAddress, rand)
+	}
+	return
 }
 
 func CompleteUserInfo(user *User) bool {
@@ -88,7 +94,11 @@ func ValidateUser(user *LoginUser) *User {
 
 func ValidateSecondaryAddress(user *VerifyUserSignature) bool {
 	target := GetUserValidationCode(user)
-	return VerifySignature(user.PubKey, user.Signature, target)
+	verified := VerifySignature(user.PubKey, user.Signature, target)
+	if verified {
+		log.Printf("User with ")
+	}
+	return verified
 }
 
 //TODO

@@ -5,7 +5,7 @@ password: n0t@rIzt0K
 emailServer: mail.dreamhost.com
 privKeyFile: config/ntry.rsa
 pubKeyFile: config/ntry.rsa.pub
-ethIPC: /tmp/ethereum_dev_mode/geth.ipc
+ethDataDir: /tmp/ethereum_dev_mode
 mapperContract: 0xcE114B931DBD8cfCF517c6A72BE5F4F8B58944Bb
 db: 
   host: localhost

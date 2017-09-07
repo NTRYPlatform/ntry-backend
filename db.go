@@ -3,6 +3,7 @@ package auth
 import (
 	"io/ioutil"
 	"log"
+	"path/filepath"
 
 	"github.com/ntryapp/auth/config"
 	db "upper.io/db.v3"
@@ -37,8 +38,8 @@ func initConnection() {
 		//check for existence of reqd collections
 		if sess.Collection("user").Exists() == false {
 			log.Println("User table doesn't exist! Let's see if we can create it...")
-
-			bytes, err := ioutil.ReadFile("config/ntry-user.sql")
+			file, _ := filepath.Abs(".notaryconf/ntry-user.sql")
+			bytes, err := ioutil.ReadFile(file)
 			if err != nil {
 				log.Panicln("Can't read sql file!", err)
 			}

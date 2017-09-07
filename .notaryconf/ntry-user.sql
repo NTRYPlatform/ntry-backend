@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `telephone_number` varchar(100) DEFAULT NULL,
   `address` varchar(250) DEFAULT NULL,
   `email_verified` bool DEFAULT NULL,
-  `eth_verification` varchar(41) DEFAULT NULL,
+  `eth_verification` varchar(64) DEFAULT NULL,
   `verification_code` varchar(40) DEFAULT NULL,
   `reg_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`eth_address`)

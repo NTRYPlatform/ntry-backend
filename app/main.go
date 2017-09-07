@@ -12,6 +12,9 @@ import (
 func init() {
 	// Load configuration
 	config.LoadConfig()
+	// TODO: condition here...
+	// eth.DeployMapperContract()
+
 }
 
 func main() {
@@ -32,7 +35,7 @@ func main() {
 	router.HandleFunc("/send-invitation", auth.NotImplemented)
 
 	http.Handle("/", router)
-	http.Handle("/api", AuthMiddleware(apiRouter))
+	http.Handle("/api", auth.AuthMiddleware(apiRouter))
 
 	//TODO:generate cert and serve on TLS
 	err := http.ListenAndServe(addr, nil)

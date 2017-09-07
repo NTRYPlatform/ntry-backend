@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"io/ioutil"
 	"log"
+	"path/filepath"
 	"strconv"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -20,7 +21,7 @@ type Config struct {
 	PubKeyFile     string `yaml:"pubKeyFile" required:"true"`
 	PrivKeyFile    string `yaml:"privKeyFile" required:"true"`
 	MapperContract string `yaml:"mapperContract" required:"true"`
-	EthIPC         string `yaml:"ethIPC" required:"true"`
+	EthDataDir     string `yaml:"ethDataDir" required:"true"`
 	Db             Database
 }
 
@@ -46,10 +47,10 @@ var (
  */
 func initConfig() {
 	//TODO: maybe the path could be a part of the command args?
-	configFile, err := ioutil.ReadFile(".notaryconf/ntryapp.yml")
-
+	file, err := filepath.Abs(".notaryconf/ntryapp.yml")
+	configFile, err := ioutil.ReadFile(file)
 	if err != nil {
-		log.Println("Can't read config file!", err)
+		log.Printf("Can't read config file! %v", err.Error())
 		panic("Panicking!")
 	}
 
@@ -125,12 +126,14 @@ func GetEmailInfo() (email, password, emailServer string) {
 
 // GetMapperContract returns mapper contracts address
 func GetMapperContract() string {
-	LoadConfig()
 	return conf.MapperContract
+}
+
+func GetEthDataDir() string {
+	return conf.EthDataDir
 }
 
 // GetEthIPC returns eth IPC endpoint
 func GetEthIPC() string {
-	LoadConfig()
-	return conf.EthIPC
+	return conf.EthDataDir + "/geth.ipc"
 }
