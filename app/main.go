@@ -9,17 +9,6 @@ import (
 	"github.com/ntryapp/auth/config"
 )
 
-// func init() {
-// 	// Load configuration
-// 	config.LoadConfig()
-// 	// TODO: condition here...
-// 	// eth.DeployMapperContract()
-// 	_, key := eth.CreateAccount("this shite")
-// 	log.Println(key)
-// 	// eth.SecondaryInUse()
-
-// }
-
 func main() {
 
 	addr := config.GetServerAddress()

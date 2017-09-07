@@ -27,25 +27,35 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	//TODO: check the limit
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 	if err != nil {
-		panic(err)
+		log.Printf("Error while unmarshalling json: %v\n", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 	if err := r.Body.Close(); err != nil {
-		panic(err)
+		log.Printf("Error while reading request body: %v\n", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 	if err := json.Unmarshal(body, &user); err != nil {
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.WriteHeader(422) // unprocessable entity
 		if err := json.NewEncoder(w).Encode(err); err != nil {
-			panic(err)
+			log.Printf("Error while unmarshalling json: %v\n", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
 		}
 	}
 
 	t := RegisterUser(user)
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(t); err != nil {
-		panic(err)
+	if len(t) > 0 {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(w).Encode(t); err != nil {
+			log.Printf("Error while writing json response: %v\n", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	} else {
+		// TODO: maybe 500? message?s
+		w.WriteHeader(http.StatusExpectationFailed)
 	}
+
 }
 
 func UpdateUserInfo(w http.ResponseWriter, r *http.Request) {

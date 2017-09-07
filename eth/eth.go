@@ -67,6 +67,7 @@ func DeployMapperContract(key, passphrase string) {
 	// wait for the transaction to be mined and check
 	time.Sleep(200 * time.Millisecond)
 	getTransactionReceipt(tx.Hash().String())
+	ks.SignHash
 
 }
 
