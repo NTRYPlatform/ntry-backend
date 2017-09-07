@@ -6,6 +6,7 @@ import (
 	"log"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	yaml "gopkg.in/yaml.v2"
@@ -35,11 +36,21 @@ type Database struct {
 }
 
 var (
+	once   sync.Once
 	conf   *Config
 	addr   string
 	pubKey *rsa.PublicKey
 	pvtKey *rsa.PrivateKey
 )
+
+// TODO: add once sync
+func init() {
+	once.Do(func() {
+		if conf == nil {
+			initConfig()
+		}
+	})
+}
 
 /* initConfig loads config file from the configuration folder
 *  panics
@@ -65,18 +76,7 @@ func initConfig() {
 
 }
 
-// LoadConfig initializes config
-// TODO: add once sync
-// TODO: use the init function for initializing config
-func LoadConfig() {
-	if conf == nil {
-		initConfig()
-	}
-}
-
-// GetServerAddress returns server address
 func GetServerAddress() string {
-	LoadConfig()
 	if addr == "" {
 		addr = conf.Host + ":" + strconv.Itoa(conf.Port)
 	}
@@ -85,13 +85,11 @@ func GetServerAddress() string {
 
 // GetDatabaseSettings returns Database struct
 func GetDatabaseSettings() *Database {
-	LoadConfig()
 	return &conf.Db
 }
 
 // GetPvtKey returns private key
 func GetPvtKey() *rsa.PrivateKey {
-	LoadConfig()
 	if pvtKey == nil {
 		pvtBytes, err := ioutil.ReadFile(conf.PrivKeyFile)
 		if err != nil {
@@ -107,7 +105,6 @@ func GetPvtKey() *rsa.PrivateKey {
 
 // GetPubKey returns public key
 func GetPubKey() *rsa.PublicKey {
-	LoadConfig()
 	if pubKey == nil {
 		pubBytes, err := ioutil.ReadFile(conf.PubKeyFile)
 		if err != nil {
@@ -120,7 +117,6 @@ func GetPubKey() *rsa.PublicKey {
 
 // GetEmailInfo returns email, password and emailserver strings
 func GetEmailInfo() (email, password, emailServer string) {
-	LoadConfig()
 	return conf.Email, conf.Password, conf.EmailServer
 }
 

@@ -29,9 +29,9 @@ var (
 )
 
 func init() {
+	endPoint = config.GetEthIPC()
 	ks = keystore.NewKeyStore(filepath.Join(config.GetEthDataDir(), "keystore"), keystore.StandardScryptN, keystore.StandardScryptP)
 	mapperContract = config.GetMapperContract()
-	endPoint = config.GetEthIPC()
 }
 
 func getClient() (client *ethclient.Client, err error) {
