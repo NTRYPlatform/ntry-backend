@@ -43,7 +43,6 @@ var (
 	pvtKey *rsa.PrivateKey
 )
 
-// TODO: add once sync
 func init() {
 	once.Do(func() {
 		if conf == nil {
@@ -132,4 +131,14 @@ func GetEthDataDir() string {
 // GetEthIPC returns eth IPC endpoint
 func GetEthIPC() string {
 	return conf.EthDataDir + "/geth.ipc"
+}
+
+//UpdateConfig is a util function to automatically update the configuration
+func UpdateConfig(conf *Config) {
+	file, _ := filepath.Abs(".notaryconf/ntryapp.yml")
+	out, err := yaml.Marshal(conf)
+	if err != nil {
+		log.Printf("Error while trying to update config: %s\n", err.Error())
+	}
+	ioutil.WriteFile(file, out, 0644)
 }
