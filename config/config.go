@@ -23,6 +23,8 @@ type Config struct {
 	PrivKeyFile    string `yaml:"privKeyFile" required:"true"`
 	MapperContract string `yaml:"mapperContract" required:"true"`
 	EthDataDir     string `yaml:"ethDataDir" required:"true"`
+	EthPvtKeyFile  string `yaml:"ethPvtKeyFile" required:"true"`
+	EthPassphrase  string `yaml:"ethPassphrase" required:"true"`
 	Db             Database
 }
 
@@ -133,12 +135,25 @@ func GetEthIPC() string {
 	return conf.EthDataDir + "/geth.ipc"
 }
 
-//UpdateConfig is a util function to automatically update the configuration
-func UpdateConfig(conf *Config) {
+//updateConfig is a util function to automatically update the configuration file
+func updateConfig(conf *Config) {
 	file, _ := filepath.Abs(".notaryconf/ntryapp.yml")
 	out, err := yaml.Marshal(conf)
 	if err != nil {
 		log.Printf("Error while trying to update config: %s\n", err.Error())
 	}
 	ioutil.WriteFile(file, out, 0644)
+}
+
+func GetEthKey() string {
+	return conf.EthPvtKeyFile
+}
+
+func GetEthPassphrase() string {
+	return conf.EthPassphrase
+}
+
+func SetMapperContractAddress(address string) {
+	conf.MapperContract = address
+	updateConfig(conf)
 }

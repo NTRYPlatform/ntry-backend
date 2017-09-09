@@ -3,13 +3,15 @@ port: 9090
 email: noreply@notary-platform.com
 password: n0t@rIzt0K
 emailServer: mail.dreamhost.com
-privKeyFile: config/ntry.rsa
-pubKeyFile: config/ntry.rsa.pub
+pubKeyFile: .notaryconf/ntry.rsa.pub
+privKeyFile: .notaryconf/ntry.rsa
+mapperContract: 0xE567C3496E9a6788Cf8aC925A20C597A3d62B6cA
 ethDataDir: /tmp/ethereum_dev_mode
-mapperContract: ~
-db: 
-  host: localhost
+ethPvtKeyFile: UTC--2017-09-09T19-00-56.791997063Z--4d8c9b9d0f956b1f208b6b0eaf8777bb5dadfbef
+ethPassphrase: anotherone
+db:
   name: ntry
-  port: 3306
   user: root
   password: toor
+  host: localhost
+  port: 3306

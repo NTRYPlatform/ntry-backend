@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -32,6 +31,15 @@ func init() {
 	endPoint = config.GetEthIPC()
 	ks = keystore.NewKeyStore(filepath.Join(config.GetEthDataDir(), "keystore"), keystore.StandardScryptN, keystore.StandardScryptP)
 	mapperContract = config.GetMapperContract()
+	if len(mapperContract) < 1 {
+		keyFile := filepath.Join(config.GetEthDataDir(), "keystore", config.GetEthKey())
+		key, err := ioutil.ReadFile(keyFile)
+		if err != nil {
+			log.Fatalf("Error occurred while trying to get ntry eth key: %v", err.Error())
+		}
+		mapperContract = deployMapperContract(string(key), config.GetEthPassphrase())
+		config.SetMapperContractAddress(mapperContract)
+	}
 }
 
 func getClient() (client *ethclient.Client, err error) {
@@ -44,15 +52,15 @@ func getClient() (client *ethclient.Client, err error) {
 	return
 }
 
-// DeployMapperContract deploys mapper contract to the configured ethereum network
-func DeployMapperContract(key, passphrase string) {
+//deployMapperContract deploys mapper contract to the configured ethereum network
+func deployMapperContract(key, passphrase string) string {
 	log.Println("Trying to deploy mapper contract...")
 	// Create an IPC based RPC connection to a remote node and an authorized transactor
 	conn, err := getClient()
 	if err != nil {
 		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
 	}
-	auth, err := bind.NewTransactor(strings.NewReader(key), "another")
+	auth, err := bind.NewTransactor(strings.NewReader(key), passphrase)
 	if err != nil {
 		log.Fatalf("Failed to create authorized transactor: %v", err)
 	}
@@ -65,8 +73,9 @@ func DeployMapperContract(key, passphrase string) {
 	log.Printf("Transaction waiting to be mined: 0x%x\n\n", tx.Hash())
 
 	// wait for the transaction to be mined and check
-	time.Sleep(200 * time.Millisecond)
-	getTransactionReceipt(tx.Hash().String())
+	// time.Sleep(200 * time.Millisecond)
+	// getTransactionReceipt(tx.Hash().String())
+	return address.String()
 
 }
 
@@ -162,7 +171,6 @@ func listAccounts() {
 
 // CreateAccount creates new ethereum account and unlocks it
 func CreateAccount(password string) (string, string) {
-
 	acc, err := ks.NewAccount(password)
 	if err != nil {
 		log.Printf("Problem with creating new account! %v\n", err.Error())
