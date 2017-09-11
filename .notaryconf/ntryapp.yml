@@ -5,10 +5,10 @@ password: n0t@rIzt0K
 emailServer: mail.dreamhost.com
 pubKeyFile: .notaryconf/ntry.rsa.pub
 privKeyFile: .notaryconf/ntry.rsa
-mapperContract: 0xE567C3496E9a6788Cf8aC925A20C597A3d62B6cA
+mapperContract: 0xa887bA2B03cF1eC1134072E041169247A9489AcE
 ethDataDir: /tmp/ethereum_dev_mode
-ethPvtKeyFile: UTC--2017-09-09T19-00-56.791997063Z--4d8c9b9d0f956b1f208b6b0eaf8777bb5dadfbef
-ethPassphrase: anotherone
+ethPvtKeyFile: UTC--2017-09-11T17-21-45.898461114Z--cfa66834f5281debe92faf99c64321e175f220a9
+ethPassphrase: thatsit
 db:
   name: ntry
   user: root

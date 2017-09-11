@@ -2,6 +2,7 @@ package eth
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,9 +13,11 @@ import (
 	"strings"
 	"sync"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ntryapp/auth/config"
 )
@@ -40,6 +43,7 @@ func init() {
 		mapperContract = deployMapperContract(string(key), config.GetEthPassphrase())
 		config.SetMapperContractAddress(mapperContract)
 	}
+	subscribeToMapperContract()
 }
 
 func getClient() (client *ethclient.Client, err error) {
@@ -50,6 +54,44 @@ func getClient() (client *ethclient.Client, err error) {
 		}
 	})
 	return
+}
+
+func subscribeToMapperContract() {
+	//
+	// Configure the node and an ethereum full node.
+	// stackConf := &node.Config{}
+	// ethConf := &eth.Config{}
+	// stack, err := node.New(stackConf)
+	// if err != nil {
+	// 	log.Printf("protocol stack: %v", err.Error())
+	// }
+
+	// Start the node. This is a bit ugly at the moment.
+	// newEth := func(ctx *node.ServiceContext) (node.Service, error) {
+	// 	return eth.New(ctx, ethConf)
+	// }
+	ch := make(chan types.Log)
+	c, _ := getClient()
+
+	if c != nil {
+		_, err := c.SubscribeFilterLogs(context.TODO(), ethereum.FilterQuery{Addresses: []common.Address{common.HexToAddress(config.GetMapperContract())}}, ch)
+		if err != nil {
+			log.Fatalf("Can't subscribe to contract logs!")
+		}
+		// goroutine
+		go func() {
+			for true {
+				// event := types.Log{}
+				ethLog := <-ch
+				// bytes, err := json.Marshal(ethLog)
+				// json.Unmarshal(bytes, &event)
+				log.Printf("%+v", ethLog)
+				log.Printf("Address: %s", ethLog.Address.String())
+				log.Printf("Data: %x", string(ethLog.Data))
+				// log.Printf("Data: %s", ethLog.UnmarshalJSON)
+			}
+		}()
+	}
 }
 
 //deployMapperContract deploys mapper contract to the configured ethereum network
