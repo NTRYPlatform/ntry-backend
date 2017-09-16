@@ -15,3 +15,4 @@ db:
   password: toor
   host: localhost
   port: 3306
+  script: .notaryconf/ntry-user.sql

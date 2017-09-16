@@ -1,20 +1,17 @@
-package auth
+package notary
 
 import (
-	"log"
+	"fmt"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/ntryapp/auth/eth"
 )
 
 // User is the model for the `user` table
 type User struct {
+	UID string `db:"uid" json:"uid"  binding:"required"`
 
-	//TODO: Do we even need this, if we have the mapping?
-	EthAddress string `db:"eth_address" json:"ethAddress" binding:"required"`
-
-	SecondaryAddress string `db:"secondary_address" json:"secondaryAddress"`
+	EthAddress string `db:"eth_address" json:"ethAddress"`
 
 	Password string `db:"password" json:"password" binding:"required"`
 
@@ -28,11 +25,9 @@ type User struct {
 
 	Address string `db:"address" json:"address"`
 
-	IsEmailVerified bool `db:"email_verified" json:"emailVerified"`
+	AccountVerified bool `db:"account_verified" json:"accountVerified"`
 
 	RegTime time.Time `db:"reg_time" json:"regTime"`
-
-	VerificationCode string `db:"verification_code" json:"verificationCode"`
 
 	EthAddressVerification string `db:"eth_verification" json:"ethVerification"`
 }
@@ -48,65 +43,47 @@ type LoginUser struct {
 	Password     string `json:"password" binding:"required"`
 }
 
-type VerifyUserSignature struct {
-	PubKey    string `json:"pubKey" binding:"required"`
-	Signature string `json:"signature" binding:"required"`
+// VerifyUser sets verification info
+func VerifyUser(uid, address, txHash string) *User {
+	return &User{EthAddress: address, EthAddressVerification: txHash, AccountVerified: true}
 }
 
 //TODO
-func RegisterUser(user User) (key string) {
-	if UserExistsByUniqueField(&user) == true {
-		// TODO: might want to throw exception for better client-side response
-		log.Printf("User with either of these values already exists! %v\n", user)
-		return
-	}
-
-	// create new eth secondary key
-	address, key := eth.CreateAccount(user.Password)
-	user.SecondaryAddress = address
-
-	// verification
-	rand := RandString(40)
-	user.VerificationCode = rand
-	user.RegTime = time.Now().UTC()
-	//TODO: handle exceptions
-	if InsertUser(user) {
-		SendVerificationEmail(user.EmailAddress, rand)
-	}
-	return
+func GetUserByAddress(uid string) (*User, error) {
+	return nil, nil
 }
 
-func CompleteUserInfo(user *User) bool {
-	err := UpdateUser(user)
-	updated := false
-	if err != nil {
-		log.Printf("Error occurred while trying to update user: %s", err)
-	} else {
-		updated = true
+func (u *User) OK() error {
+	if len(u.EthAddress) < 32 {
+		// return ErrRequied("eth address")
 	}
-	return updated
-}
-
-//TODO: change name and add checks
-func ValidateUser(user *LoginUser) *User {
-	return LoginUserValidation(user)
-}
-
-func ValidateSecondaryAddress(user *VerifyUserSignature) bool {
-	target := GetUserValidationCode(user)
-	verified := VerifySignature(user.PubKey, user.Signature, target)
-	if verified {
-		log.Printf("User with ")
-	}
-	return verified
-}
-
-//TODO
-func GetUserByAddress(addr string) *User {
+	// if ..
 	return nil
 }
 
-//TODO
-func CheckForEthVerification() {
-
+func (u *User) String() string {
+	return fmt.Sprintf(`
+	UID:     %v
+	EthAddress:     %v
+	Password:     %v
+	EmailAddress:       %v
+	TelephoneNumber:    %v
+	FirstName: %v
+	LastName  %v
+	Address:    %v
+	AccountVerified:     %v 
+	RegTime:        %v
+	EthAddressVerification:        %v
+	`,
+		u.UID,
+		u.EthAddress,
+		u.Password,
+		u.EmailAddress,
+		u.TelephoneNumber,
+		u.FirstName,
+		u.LastName,
+		u.Address,
+		u.AccountVerified,
+		u.RegTime,
+		u.EthAddressVerification)
 }

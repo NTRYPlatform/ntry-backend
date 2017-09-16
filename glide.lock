@@ -1,5 +1,5 @@
-hash: fb6dbf706c6f171938420dce00fa1758f79c7ca41a3549c5fda50ecbe5f2b743
-updated: 2017-09-07T19:29:33.19319748+05:00
+hash: ae21640732371b4206b98287e235933f100ebb054dc7d1dccf1db1fc3757c3b1
+updated: 2017-09-17T01:51:26.681187452+05:00
 imports:
 - name: github.com/aristanetworks/goarista
   version: 316cb1751909fe30bb23726dd0d7a5ea1e44673f
@@ -13,6 +13,8 @@ imports:
   version: a539ee1a749a2b895533f979515ac7e6e0f5b650
   subpackages:
   - request
+- name: github.com/docopt/docopt-go
+  version: 784ddc588536785e7299f7272f39101f7faccc3f
 - name: github.com/ethereum/go-ethereum
   version: c4d21bc8e548d909d5b2940cb00d3d068f5697ec
   subpackages:
@@ -41,9 +43,11 @@ imports:
 - name: github.com/go-stack/stack
   version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/gorilla/context
-  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
+  version: 1ea25387ff6f684839d82767c1733ff4d4d15d0a
 - name: github.com/gorilla/mux
   version: 24fca303ac6da784b9e8269f724ddeb0b2eea5e7
+- name: github.com/gorilla/websocket
+  version: 6f34763140ed8887aed6a044912009832b4733d7
 - name: github.com/pborman/uuid
   version: e790cca94e6cc75c7064b1332e63811d4aae1a53
 - name: github.com/rcrowley/go-metrics
@@ -52,16 +56,25 @@ imports:
   version: 88a54d914928e1faebb1c2195605dc87bd98dc27
 - name: github.com/rs/cors
   version: eabcc6af4bbe5ad3a949d36450326a2b0b9894b8
+- name: github.com/satori/go.uuid
+  version: b061729afc07e77a8aa4fad0a2fd840958f1942a
+- name: github.com/Unknwon/com
+  version: 28b053d5a2923b87ce8c5a08f3af779894a72758
+- name: go.uber.org/atomic
+  version: 4e336646b2ef9fc6e47be8e21594178f98e5ebcf
+- name: go.uber.org/multierr
+  version: 3c4937480c32f4c13a875a1829af76c98ca3d40a
+- name: go.uber.org/zap
+  version: 9d9d6135afe89b6fc4a05e9a8552526caba38048
+  subpackages:
+  - buffer
+  - internal/bufferpool
+  - internal/color
+  - internal/exit
+  - zapcore
 - name: golang.org/x/crypto
   version: 40541ccb1c6e64c947ed6f606b8a6cb4b67d7436
   subpackages:
-  - cast5
-  - openpgp
-  - openpgp/armor
-  - openpgp/elgamal
-  - openpgp/errors
-  - openpgp/packet
-  - openpgp/s2k
   - pbkdf2
   - scrypt
 - name: golang.org/x/net

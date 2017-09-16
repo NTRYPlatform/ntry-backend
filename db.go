@@ -1,135 +1,175 @@
-package auth
+package notary
 
 import (
-	"io/ioutil"
-	"log"
-	"path/filepath"
+	"fmt"
 
-	"github.com/ntryapp/auth/config"
-	db "upper.io/db.v3"
+	log "go.uber.org/zap"
+	"upper.io/db.v3"
 	"upper.io/db.v3/lib/sqlbuilder"
-	"upper.io/db.v3/mysql"
+	"upper.io/db.v3/mysql" // mysql adapter
 )
 
-var (
-	c              = config.GetDatabaseSettings()
-	ntrydb         *sqlbuilder.Database
-	userCollection *db.Collection
-	//TODO: configure max open connections/idle connections, etc...
-	settings = mysql.ConnectionURL{
-		Host:     c.Host,
-		Database: c.Name,
-		User:     c.User,
-		Password: c.Password,
-	}
+const (
+	defaultUserCollection = `user`
 )
 
-// TODO: will have to figure out something about the closing
-// and do the once thing for thread safety
-func initConnection() {
-	if ntrydb == nil {
-		sess, err := mysql.Open(settings)
-		if err != nil {
-			log.Println("Database connection cannot be made!")
-			log.Fatalf("db.Open(): %q\n", err)
-		} else {
-			log.Println("Connected to db using the following DSN: ", settings.String())
-		}
-		//check for existence of reqd collections
-		if sess.Collection("user").Exists() == false {
-			log.Println("User table doesn't exist! Let's see if we can create it...")
-			file, _ := filepath.Abs(".notaryconf/ntry-user.sql")
-			bytes, err := ioutil.ReadFile(file)
-			if err != nil {
-				log.Panicln("Can't read sql file!", err)
-			}
-			_, err = sess.Exec(string(bytes))
-			if err != nil {
-				log.Fatalf("Couldn't create table! Shutting down...")
-			}
-
-		}
-
-		ntrydb = &sess
-	} //TODO: might want to add a Ping() just to check whether db conn is alive
+type dbServer struct {
+	sess   sqlbuilder.Database
+	logger *log.Logger
 }
 
-func initUserCollection() {
-	if userCollection == nil {
-		coll := (*ntrydb).Collection("user")
-		userCollection = &coll
+func (d *dbServer) CloseSession() {
+	d.sess.Close()
+}
+
+func (d *dbServer) GetSession() sqlbuilder.Database {
+	return d.sess
+}
+
+//TODO: might want to add a Ping() just to check whether db conn is alive
+//TODO: configure max open connections/idle connections, etc...
+
+func dbInit(script string, settings mysql.ConnectionURL, logger *log.Logger) (*dbServer, error) {
+	var d dbServer
+	var err error
+	d.logger = logger
+
+	// var s sqlbuilder.Database
+	d.sess, err = mysql.Open(settings)
+	if err != nil {
+		return nil, err
+	}
+
+	// Collection lookup.
+	col := d.sess.Collection(`ntry`)
+	if col.Exists() {
+		return &d, nil
+	}
+
+	logger.Info(fmt.Sprint("Initializing database ...", defaultUserCollection))
+	// Collection does not exists, let's create it.
+	// Execute CREATE TABLE.
+	if _, err = d.sess.Exec(script); err != nil {
+		return nil, err
+	}
+
+	return &d, nil
+}
+
+/**
+ * DB wrapper using context
+ */
+// type dbwrapper struct {
+// 	h         http.Handler
+// 	dbSession *dbServer
+// }
+
+// func WithDB(s *dbServer, h http.Handler) http.Handler {
+// 	return &dbwrapper{dbSession: s, h: h}
+// }
+
+// func (dbw *dbwrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// 	log.Println("In db wrapper, Server HTTP")
+// 	// // copy the Session
+// 	// dbcopy := dbw.dbSession
+// 	// defer dbcopy.Close()
+
+// 	// context.Set(r, "db", dbcopy)
+// 	dbw.h.ServeHTTP(w, r)
+// }
+
+// Returns true if collection already exist
+func (d *dbServer) ColectionExist(name string) bool {
+	return d.sess.Collection(name).Exists()
+}
+
+func (d *dbServer) CreateCollection(name, script string) error {
+	if _, err := d.sess.Exec(script); err != nil {
+		d.logger.Error(fmt.Sprintf("Couldn't create table! should be Shutting down..."))
+		return err
+	} else {
+		d.logger.Info(fmt.Sprint("Collection created successfully: ", name))
+		return nil
 	}
 }
 
 //TODO: might want to add salt to the pwd
 // InsertUser inserts new user in the database
-func InsertUser(user User) bool {
-	initConnection()
-	initUserCollection()
-	added := false
-	// coll := (*ntrydb).Collection("user")
-	// _, err := coll.Insert(user)
-	_, err := (*userCollection).Insert(user)
+func (d *dbServer) Insert(anything interface{}) error {
+	_, err := d.collection(defaultUserCollection).Insert(anything)
 	if err != nil {
-		log.Println("Oops! User couldn't be added!", err)
-	} else {
-		log.Println("User %v added successfully!", user)
-		added = true
+		d.logger.Error(fmt.Sprintf("Oops! User couldn't be added!", err))
+		return err
 	}
-	return added
+
+	d.logger.Info(fmt.Sprint("User added successfully: ", anything))
+	return nil
 }
 
 // UserExistsByUniqueField returns boolean whether user exists by particular field value
-func UserExistsByUniqueField(user *User) bool {
-	initConnection()
-	initUserCollection()
-	exists := false
-	res := (*userCollection).Find("eth_address = ? OR email_address = ?", (*user).EthAddress, (*user).EmailAddress)
-	count, err := res.Count()
-	if err != nil {
-		log.Println("Not cool!", err)
+func (d *dbServer) UserExistsByUniqueField(user *User) (bool, error) {
+
+	res := d.collection(defaultUserCollection).Find("uid = ? OR email_address = ?", (*user).UID, (*user).EmailAddress)
+	defer res.Close()
+	if count, err := res.Count(); err != nil {
+		d.logger.Error(fmt.Sprintf("Not cool!", err))
+		return false, err
+	} else if count > 0 {
+		return true, nil
 	}
-	if count > 0 {
-		exists = true
-	}
-	return exists
+	return false, nil
+}
+
+func (d *dbServer) collection(collection string) db.Collection {
+	return d.sess.Collection(collection)
 }
 
 //TODO: This could change everything... edit so it would only change certain fields
 // UpdateUser returns boolean whether user was updated or not
-func UpdateUser(user *User) (err error) {
-	initConnection()
-	initUserCollection()
-	res := (*userCollection).Find("eth_address = ?", (*user).EthAddress)
+func (d *dbServer) UpdateUser(user *User) (err error) {
+
+	res := d.collection(defaultUserCollection).Find("uid = ?", user.UID)
+	defer res.Close()
 	err = res.Update(user)
 	if err != nil {
-		log.Println("Not cool!", err)
+		d.logger.Error(fmt.Sprintf("Not cool!", err))
 	}
 	return
 }
 
 // LoginUserValidation
-func LoginUserValidation(user *LoginUser) *User {
-	initConnection()
-	initUserCollection()
+func (d *dbServer) LoginUserValidation(user *LoginUser) (*User, error) {
+
 	u := User{}
-	res := (*userCollection).Find("password = ? AND email_address = ?", (*user).Password, (*user).EmailAddress)
+	res := d.collection(defaultUserCollection).Find("password = ? AND email_address = ?", (*user).Password, (*user).EmailAddress)
+	defer res.Close()
 	err := res.One(&u)
 	if err != nil {
-		log.Println("Not cool!", err)
+		d.logger.Error(fmt.Sprintf("Not cool!", err))
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (d *dbServer) GetUserByUID(uid string) *User {
+	u := User{}
+	res := d.collection(defaultUserCollection).Find("uid = ?", uid)
+	defer res.Close()
+	err := res.Update(&u)
+	if err != nil {
+		d.logger.Error(fmt.Sprintf("Not cool! %v", err.Error()))
 	}
 	return &u
 }
 
-// GetUserValidationCode
-func GetUserValidationCode(user *VerifyUserSignature) string {
-	initConnection()
-	initUserCollection()
-	u := User{}
-	res := (*userCollection).Find("secondary_address = ?", (*user).PubKey)
-	err := res.Select("verification_code").One(&u)
-	if err != nil {
-		log.Println("Not cool!", err)
-	}
-	return u.VerificationCode
-}
+// // GetUserValidationCode
+// func (d *dbServer) GetUserValidationCode(user *VerifyUserSignature) string {
+// 	u := User{}
+// 	res := d.collection(defaultUserCollection).Find("secondary_address = ?", (*user).PubKey)
+// 	defer res.Close()
+// 	err := res.Select("verification_code").One(&u)
+// 	if err != nil {
+// 		log.Println("Not cool!", err)
+// 	}
+// 	return u.VerificationCode
+// }

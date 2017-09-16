@@ -1,11 +1,11 @@
-package: github.com/ntryapp/auth
+package: github.com/NTRYPlatform/ntry-backend
 import:
+- package: github.com/Unknwon/com
 - package: github.com/dgrijalva/jwt-go
-  version: a539ee1a749a2b895533f979515ac7e6e0f5b650
   subpackages:
   - request
+- package: github.com/docopt/docopt-go
 - package: github.com/ethereum/go-ethereum
-  version: c4d21bc8e548d909d5b2940cb00d3d068f5697ec
   subpackages:
   - accounts/abi
   - accounts/abi/bind
@@ -13,10 +13,11 @@ import:
   - core/types
   - ethclient
 - package: github.com/gorilla/mux
-  version: 24fca303ac6da784b9e8269f724ddeb0b2eea5e7
-- package: golang.org/x/crypto
+- package: github.com/gorilla/websocket
+- package: github.com/satori/go.uuid
+- package: go.uber.org/zap
   subpackages:
-  - openpgp
+  - zapcore
 - package: gopkg.in/yaml.v2
 - package: upper.io/db.v3
   subpackages:

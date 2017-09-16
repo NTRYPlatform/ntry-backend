@@ -1,115 +1,77 @@
 package eth
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"math/big"
-	"net/http"
-	"path/filepath"
 	"strings"
-	"sync"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ntryapp/auth/config"
 )
 
-var (
-	once           sync.Once
-	client         ethclient.Client
-	mapperContract string
-	ks             *keystore.KeyStore
-	endPoint       string
-)
-
-func init() {
-	endPoint = config.GetEthIPC()
-	ks = keystore.NewKeyStore(filepath.Join(config.GetEthDataDir(), "keystore"), keystore.StandardScryptN, keystore.StandardScryptP)
-	mapperContract = config.GetMapperContract()
-	if len(mapperContract) < 1 {
-		keyFile := filepath.Join(config.GetEthDataDir(), "keystore", config.GetEthKey())
-		key, err := ioutil.ReadFile(keyFile)
-		if err != nil {
-			log.Fatalf("Error occurred while trying to get ntry eth key: %v", err.Error())
-		}
-		mapperContract = deployMapperContract(string(key), config.GetEthPassphrase())
-		config.SetMapperContractAddress(mapperContract)
-	}
-	subscribeToMapperContract()
+type EthClient struct {
+	client  *ethclient.Client
+	Events  chan types.Log
+	gethIPC string
 }
 
-func getClient() (client *ethclient.Client, err error) {
-	once.Do(func() {
-		client, err = ethclient.Dial(endPoint)
-		if err != nil {
-			log.Fatalf("Failed to connect Ethereum client: %v", err.Error())
-		}
-	})
+func NewEthClient(ipc string) (*EthClient, error) {
+
+	client, err := getClient(ipc)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to connect Ethereum client: %v", err.Error()))
+	}
+
+	log.Printf("Ethereum client created: %v", client)
+
+	return &EthClient{client: client, Events: make(chan types.Log, 100), gethIPC: ipc}, nil
+}
+
+func getClient(ipc string) (client *ethclient.Client, err error) {
+	client, err = ethclient.Dial(ipc)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to connect Ethereum client: %v", err.Error()))
+	}
 	return
 }
 
-func subscribeToMapperContract() {
-	//
-	// Configure the node and an ethereum full node.
-	// stackConf := &node.Config{}
-	// ethConf := &eth.Config{}
-	// stack, err := node.New(stackConf)
-	// if err != nil {
-	// 	log.Printf("protocol stack: %v", err.Error())
-	// }
+func (e *EthClient) SubscribeToMapperContract(mapperContract string) error {
 
-	// Start the node. This is a bit ugly at the moment.
-	// newEth := func(ctx *node.ServiceContext) (node.Service, error) {
-	// 	return eth.New(ctx, ethConf)
-	// }
-	ch := make(chan types.Log)
-	c, _ := getClient()
+	// May be we need this, I don't know how this channel is being used deep inside
+	// ethereum so lets try without making a copy
+	// ch := e.events
+	c := e.client
 
 	if c != nil {
-		_, err := c.SubscribeFilterLogs(context.TODO(), ethereum.FilterQuery{Addresses: []common.Address{common.HexToAddress(config.GetMapperContract())}}, ch)
+		_, err := c.SubscribeFilterLogs(context.TODO(), ethereum.FilterQuery{Addresses: []common.Address{common.HexToAddress(mapperContract)}}, e.Events)
 		if err != nil {
-			log.Fatalf("Can't subscribe to contract logs!")
+			return errors.New(fmt.Sprintf("Can't subscribe to contract logs: %v", err.Error()))
 		}
-		// goroutine
-		go func() {
-			for true {
-				// event := types.Log{}
-				ethLog := <-ch
-				// bytes, err := json.Marshal(ethLog)
-				// json.Unmarshal(bytes, &event)
-				log.Printf("%+v", ethLog)
-				log.Printf("Address: %s", ethLog.Address.String())
-				log.Printf("Data: %x", string(ethLog.Data))
-				// log.Printf("Data: %s", ethLog.UnmarshalJSON)
-			}
-		}()
+		log.Printf("Subscribed to mapper contract @ %s", mapperContract)
+		return nil
 	}
+	return errors.New("Eth Client is not initialized")
 }
 
 //deployMapperContract deploys mapper contract to the configured ethereum network
-func deployMapperContract(key, passphrase string) string {
+func (e *EthClient) DeployMapperContract(key, passphrase string) (string, error) {
 	log.Println("Trying to deploy mapper contract...")
 	// Create an IPC based RPC connection to a remote node and an authorized transactor
-	conn, err := getClient()
-	if err != nil {
-		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
-	}
+	// conn, err := getClient(e.gethIPC)
+
 	auth, err := bind.NewTransactor(strings.NewReader(key), passphrase)
 	if err != nil {
-		log.Fatalf("Failed to create authorized transactor: %v", err)
+		return "", errors.New(fmt.Sprintf("Failed to create authorized transactor: %v", err))
 	}
 	// Deploy a new awesome contract for the binding demo
-	address, tx, _, err := DeployMapper(auth, conn)
+	address, tx, _, err := DeployMapper(auth, e.client)
 	if err != nil {
-		log.Fatalf("Failed to deploy new token contract: %v", err)
+		return "", errors.New(fmt.Sprintf("Failed to deploy new token contract: %v", err))
 	}
 	log.Printf("Contract pending deployment: 0x%x\n", address)
 	log.Printf("Transaction waiting to be mined: 0x%x\n\n", tx.Hash())
@@ -117,166 +79,122 @@ func deployMapperContract(key, passphrase string) string {
 	// wait for the transaction to be mined and check
 	// time.Sleep(200 * time.Millisecond)
 	// getTransactionReceipt(tx.Hash().String())
-	return address.String()
+	return address.String(), nil
 
 }
 
-// MapSecondaryAddress maps a secondary ethereum address to a primary address
-func MapSecondaryAddress(key, passphrase, primary, secondary string) (err error) {
+/**
+ * We may not need RPC interface anymore
+ */
 
-	client, _ := getClient()
-	log.Printf("Connection information: %v", client)
+// func (e *EthClient) GetTransactionReceipt(transaction string) {
+// 	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"eth_getTransactionReceipt", "params":["` + transaction + `"], "id":"1"}`)
+// 	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
+// 	if err != nil {
+// 		log.Printf("Problem with eth_getTransactionReceipt request! %v", err.Error())
+// 	}
 
-	contractAddress := common.HexToAddress(mapperContract)
+// 	client := &http.Client{}
+// 	resp, err := client.Do(req)
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
 
-	// create a transaction signer from an encrypted json key stream
-	// and the associated passphrase.
-	auth, err := bind.NewTransactor(strings.NewReader(key), passphrase)
-	if err != nil {
-		log.Fatalf("Failed to create authorized transactor: %v", err)
-	}
+// 	defer resp.Body.Close()
 
-	log.Printf("Auth: %+v", auth)
+// 	body, _ := ioutil.ReadAll(resp.Body)
 
-	// binds a generic wrapper to an already deployed contract
-	contract, err := bindMapper(contractAddress, client, client)
-	if err != nil {
-		log.Fatalf("Failed to instansitate a mapper contract: %v", err)
-		return
-	}
+// 	log.Println(string(body))
+// }
 
-	writerSession := &MapperTransactorSession{
-		Contract: &MapperTransactor{
-			contract: contract,
-		},
-		TransactOpts: bind.TransactOpts{
-			From:     auth.From,
-			Signer:   auth.Signer,
-			GasLimit: big.NewInt(3141592),
-		},
-	}
+// func listAccounts() {
+// 	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"personal_listAccounts", "params":[], "id":1}`)
+// 	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
 
-	transaction, err := writerSession.MapAddress(common.HexToAddress(secondary))
+// 	if err != nil {
+// 		log.Printf("Problem with personal_listAccounts request! %v\n", err.Error())
+// 	}
 
-	if err != nil {
-		log.Printf("Failed to map address: %v", err)
-		return
-	}
+// 	client := &http.Client{}
+// 	resp, err := client.Do(req)
 
-	log.Printf("Transaction :  %v ", transaction.Hash().Hex())
-	return
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
 
-}
+// 	defer resp.Body.Close()
 
-func getTransactionReceipt(transaction string) {
-	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"eth_getTransactionReceipt", "params":["` + transaction + `"], "id":"1"}`)
-	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
-	if err != nil {
-		log.Printf("Problem with eth_getTransactionReceipt request! %v", err.Error())
-	}
+// 	body, _ := ioutil.ReadAll(resp.Body)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Println(err)
-	}
+// 	log.Println(string(body))
+// }
 
-	defer resp.Body.Close()
+// // CreateAccount creates new ethereum account and unlocks it
+// func CreateAccount(password string) (string, string) {
+// 	acc, err := ks.NewAccount(password)
+// 	if err != nil {
+// 		log.Printf("Problem with creating new account! %v\n", err.Error())
+// 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
+// 	keyFile := acc.URL.String()[11:]
+// 	address := acc.Address.String()
+// 	log.Println("New address generated:", address)
 
-	log.Println(string(body))
-}
+// 	// TODO: might want to delete the file???
+// 	keyBytes, err := ioutil.ReadFile(keyFile)
+// 	if err := ks.Unlock(acc, password); err != nil {
+// 		log.Printf("Problem with unlocking new account! %v\n", err.Error())
 
-func listAccounts() {
-	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"personal_listAccounts", "params":[], "id":1}`)
-	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
+// 	}
 
-	if err != nil {
-		log.Printf("Problem with personal_listAccounts request! %v\n", err.Error())
-	}
+// 	return address, string(keyBytes)
+// }
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+// func unlockAccount(address string, password string) {
+// 	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"personal_unlockAccount", "params":["` + address + `","` + password + `"], "id":"1"}`)
+// 	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
 
-	if err != nil {
-		log.Fatal(err)
-	}
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
 
-	defer resp.Body.Close()
+// 	client := &http.Client{}
+// 	resp, err := client.Do(req)
 
-	body, _ := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
 
-	log.Println(string(body))
+// 	defer resp.Body.Close()
+// 	resMap := make(map[string]interface{})
+// 	body, _ := ioutil.ReadAll(resp.Body)
+// 	err = json.Unmarshal(body, &resMap)
+// 	log.Println(string(body))
+// 	unlocked := resMap["result"].(string)
+// 	log.Println(unlocked)
+// }
 
-}
+// func sendTransaction(to string, from string, amount float32, password string) {
 
-// CreateAccount creates new ethereum account and unlocks it
-func CreateAccount(password string) (string, string) {
-	acc, err := ks.NewAccount(password)
-	if err != nil {
-		log.Printf("Problem with creating new account! %v\n", err.Error())
-	}
+// 	tx := fmt.Sprintf(`{"from": "%s", "to":"%s", "value": web3.toWei(%v, "ether")}`, from, to, amount)
+// 	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"personal_sendTransaction", "params":["` + tx + `","` + password + `"], "id":"1"}`)
 
-	keyFile := acc.URL.String()[11:]
-	address := acc.Address.String()
-	log.Println("New address generated:", address)
+// 	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
 
-	// TODO: might want to delete the file???
-	keyBytes, err := ioutil.ReadFile(keyFile)
-	if err := ks.Unlock(acc, password); err != nil {
-		log.Printf("Problem with unlocking new account! %v\n", err.Error())
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
 
-	}
+// 	client := &http.Client{}
+// 	resp, err := client.Do(req)
 
-	return address, string(keyBytes)
-}
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
 
-func unlockAccount(address string, password string) {
-	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"personal_unlockAccount", "params":["` + address + `","` + password + `"], "id":"1"}`)
-	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
+// 	defer resp.Body.Close()
 
-	if err != nil {
-		log.Fatal(err)
-	}
+// 	body, _ := ioutil.ReadAll(resp.Body)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer resp.Body.Close()
-	resMap := make(map[string]interface{})
-	body, _ := ioutil.ReadAll(resp.Body)
-	err = json.Unmarshal(body, &resMap)
-	log.Println(string(body))
-	unlocked := resMap["result"].(string)
-	log.Println(unlocked)
-}
-
-func sendTransaction(to string, from string, amount float32, password string) {
-
-	tx := fmt.Sprintf(`{"from": "%s", "to":"%s", "value": web3.toWei(%v, "ether")}`, from, to, amount)
-	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"personal_sendTransaction", "params":["` + tx + `","` + password + `"], "id":"1"}`)
-
-	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer resp.Body.Close()
-
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	log.Println(string(body))
-}
+// 	log.Println(string(body))
+// }

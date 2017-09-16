@@ -2,13 +2,14 @@ package config
 
 import (
 	"crypto/rsa"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"path/filepath"
 	"strconv"
-	"sync"
 
+	"github.com/Unknwon/com"
 	jwt "github.com/dgrijalva/jwt-go"
+	log "go.uber.org/zap"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -35,125 +36,130 @@ type Database struct {
 	Password string
 	Host     string
 	Port     int
+	Script   string
 }
 
-var (
-	once   sync.Once
-	conf   *Config
-	addr   string
-	pubKey *rsa.PublicKey
-	pvtKey *rsa.PrivateKey
-)
+// Init loads config file from the configuration folder
+func Init(path string, logger *log.Logger) (*Config, error) {
+	conf := &Config{}
 
-func init() {
-	once.Do(func() {
-		if conf == nil {
-			initConfig()
-		}
-	})
-}
-
-/* initConfig loads config file from the configuration folder
-*  panics
-*
- */
-func initConfig() {
-	//TODO: maybe the path could be a part of the command args?
-	file, err := filepath.Abs(".notaryconf/ntryapp.yml")
-	configFile, err := ioutil.ReadFile(file)
+	configFile, err := readfile(path)
 	if err != nil {
-		log.Printf("Can't read config file! %v", err.Error())
-		panic("Panicking!")
+		return nil, err
 	}
 
-	err = yaml.Unmarshal(configFile, &conf)
-
-	if err != nil {
-		log.Printf("Can't unmarshall the config properties!\n%v", err)
-		panic("Panicking!")
-	} else {
-		log.Printf("Config successfully loaded: %+v", *conf)
+	if err = yaml.Unmarshal(configFile, conf); err != nil {
+		return nil, err
 	}
 
+	logger.Info(fmt.Sprintf("[notary ] configuration loaded successfully: %+v", *conf))
+
+	return conf, nil
 }
 
-func GetServerAddress() string {
-	if addr == "" {
-		addr = conf.Host + ":" + strconv.Itoa(conf.Port)
-	}
-	return addr
+func (c *Config) GetServerAddress() string {
+	return c.Host + ":" + strconv.Itoa(c.Port)
+
 }
 
 // GetDatabaseSettings returns Database struct
-func GetDatabaseSettings() *Database {
-	return &conf.Db
+func (c *Config) GetDatabaseSettings() *Database {
+	return &c.Db
+}
+
+// GetDatabaseSettings returns Database struct
+func (d *Database) GetDBSrcipts() (string, error) {
+	script, err := readfile(d.Script)
+	if err != nil {
+		return "", err
+	}
+	return string(script), nil
 }
 
 // GetPvtKey returns private key
-func GetPvtKey() *rsa.PrivateKey {
-	if pvtKey == nil {
-		pvtBytes, err := ioutil.ReadFile(conf.PrivKeyFile)
-		if err != nil {
-			log.Fatal("Can't read key!", err)
-		}
-		pvtKey, err = jwt.ParseRSAPrivateKeyFromPEM(pvtBytes)
-		if err != nil {
-			log.Fatal("Can't read key!", err)
-		}
+func (c *Config) GetPvtKey() (*rsa.PrivateKey, error) {
+
+	pvtBytes, err := readfile(c.PrivKeyFile)
+	if err != nil {
+		return nil, err
 	}
-	return pvtKey
+
+	pvtKey, err := jwt.ParseRSAPrivateKeyFromPEM(pvtBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return pvtKey, nil
 }
 
 // GetPubKey returns public key
-func GetPubKey() *rsa.PublicKey {
-	if pubKey == nil {
-		pubBytes, err := ioutil.ReadFile(conf.PubKeyFile)
-		if err != nil {
-			log.Fatal("Can't read key!", err)
-		}
-		pubKey, err = jwt.ParseRSAPublicKeyFromPEM(pubBytes)
+func (c *Config) GetPubKey() (*rsa.PublicKey, error) {
+
+	pubBytes, err := readfile(c.PubKeyFile)
+	if err != nil {
+		return nil, err
 	}
-	return pubKey
+
+	pubKey, err := jwt.ParseRSAPublicKeyFromPEM(pubBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return pubKey, nil
 }
 
 // GetEmailInfo returns email, password and emailserver strings
-func GetEmailInfo() (email, password, emailServer string) {
-	return conf.Email, conf.Password, conf.EmailServer
+func (c *Config) GetEmailInfo() (email, password, emailServer string) {
+	return c.Email, c.Password, c.EmailServer
 }
 
 // GetMapperContract returns mapper contracts address
-func GetMapperContract() string {
-	return conf.MapperContract
+func (c *Config) GetMapperContract() string {
+	return c.MapperContract
 }
 
-func GetEthDataDir() string {
-	return conf.EthDataDir
+func (c *Config) GetEthDataDir() string {
+	return c.EthDataDir
 }
 
 // GetEthIPC returns eth IPC endpoint
-func GetEthIPC() string {
-	return conf.EthDataDir + "/geth.ipc"
+func (c *Config) GetEthIPC() string {
+	return c.EthDataDir + "/geth.ipc"
 }
 
 //updateConfig is a util function to automatically update the configuration file
-func updateConfig(conf *Config) {
-	file, _ := filepath.Abs(".notaryconf/ntryapp.yml")
-	out, err := yaml.Marshal(conf)
+func (c *Config) updateConfig(path string) error {
+
+	file, _ := filepath.Abs(path)
+	out, err := yaml.Marshal(c)
 	if err != nil {
-		log.Printf("Error while trying to update config: %s\n", err.Error())
+		return err
 	}
-	ioutil.WriteFile(file, out, 0644)
+
+	return ioutil.WriteFile(file, out, 0644)
 }
 
-func GetEthKey() string {
-	return conf.EthPvtKeyFile
+func (c *Config) GetEthKey() string {
+	return c.EthPvtKeyFile
 }
 
-func GetEthPassphrase() string {
-	return conf.EthPassphrase
+func (c *Config) GetEthPassphrase() string {
+	return c.EthPassphrase
 }
 
-func SetMapperContractAddress(address string) {
-	conf.MapperContract = address
-	updateConfig(conf)
+func (c *Config) SetMapperContractAddress(address string, path string) {
+	c.MapperContract = address
+	c.updateConfig(path)
+}
+
+func readfile(path string) (data []byte, err error) {
+	if !com.IsFile(path) {
+		return nil, fmt.Errorf("No file exist at path: %v", path)
+	}
+
+	data, err = ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return
 }
