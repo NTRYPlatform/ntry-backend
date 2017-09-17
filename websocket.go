@@ -7,7 +7,6 @@ import (
 )
 
 var clients = make(map[*websocket.Conn]bool) // connected clients
-var register = make(chan string)
 var notifications = make(chan string)
 
 // 	ws       *websocket.Conn
@@ -24,22 +23,26 @@ var notifications = make(chan string)
 // 	content string
 // }
 
-func WriteToRegisterChannel(msg string) {
+func WriteToRegisterChannel(register <-chan string, err chan<- struct{}) {
 
-	go func(msg string) { register <- msg }(msg)
 	// Grab the next message from the register channel
-	select {
-	case m := <-register:
-		// Send it out to every client that is currently connected (TODO: shouldn't be broadcast)
-		for client := range clients {
-			err := client.WriteJSON(m)
-			if err != nil {
-				// log.Printf("error: %v", err)
-				client.Close()
-				delete(clients, client)
+	for {
+		select {
+		case m := <-register:
+			// Send it out to every client that is currently connected (TODO: shouldn't be broadcast)
+			for client := range clients {
+				err := client.WriteJSON(m)
+				if err != nil {
+					// log.Printf("error: %v", err)
+					client.Close()
+					delete(clients, client)
+				}
 			}
+		default:
+
 		}
 	}
+	err <- struct{}{}
 }
 
 func ServeWs(w http.ResponseWriter, r *http.Request) {

@@ -133,6 +133,8 @@ func (n *Notary) makeID() error {
 
 func (n *Notary) Start() error {
 
+	go n.EthWatcher()
+
 	router := n.muxServer()
 	addr := n.conf.GetServerAddress()
 	//TODO:generate cert and serve on TLS
@@ -141,6 +143,11 @@ func (n *Notary) Start() error {
 }
 
 func (n *Notary) EthWatcher() {
+	out := make(chan string)
+	err := make(chan struct{})
+
+	go WriteToRegisterChannel(out, err)
+
 	for {
 		select {
 		case ethLog := <-n.ethClient.Events:
@@ -149,11 +156,15 @@ func (n *Notary) EthWatcher() {
 			address := data[24:64]
 			uid := data[64:96]
 			n.logger.Info(fmt.Sprintf("Address: %s, UID: %s, Tx Hash: %s", address, uid, ethLog.TxHash.String()))
-			u := app.VerifyUser(uid, address, ethLog.TxHash.String())
-			if err := d.UpdateUser(u, uid); err != nil {
-				log.Printf("Couldn't update user email verification! %v", err.Error())
+			u := VerifyUser(uid, address, ethLog.TxHash.String())
+			if err := n.db.UpdateUser(u); err != nil {
+				n.logger.Error(fmt.Sprintf("Couldn't update user email verification! %v", err.Error()))
+			} else {
+				out <- "{\"registered\":true}" + uid
 			}
-			app.WriteToRegisterChannel("{\"registered\":true}")
+		case <-err:
+			n.logger.Error("WebSocket register stopped working, Stoping eth watcher")
+			return
 		}
 	}
 }
