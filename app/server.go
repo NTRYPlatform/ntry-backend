@@ -1,7 +1,7 @@
 package main
 
 import (
-	// "encoding/hex"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/signal"
@@ -83,4 +83,26 @@ func main() {
 
 	onErrorExit(ntry.Start())
 
+}
+
+func EventListener(n *notary.Notary) {
+	// TODO:
+	// Move this to eth package and connect with pipeline
+	go func() {
+		for {
+			select {
+			case ethLog := <-n.EthClient.Events:
+				fmt.Printf("[notary  ] %+v", ethLog)
+				data := hex.EncodeToString(ethLog.Data)
+				address := data[24:64]
+				uid := data[64:96]
+				fmt.Printf("Address: %s, UID: %s, Tx Hash: %s", address, uid, ethLog.TxHash.String())
+				u := n.VerifyUser(uid, address, ethLog.TxHash.String())
+				if err := d.UpdateUser(u, uid); err != nil {
+					log.Printf("Couldn't update user email verification! %v", err.Error())
+				}
+				app.WriteToRegisterChannel("{\"registered\":true}")
+			}
+		}
+	}()
 }
