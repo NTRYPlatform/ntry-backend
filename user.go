@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
@@ -53,11 +55,43 @@ func GetUserByAddress(uid string) (*User, error) {
 	return nil, nil
 }
 
-func (u *User) OK() error {
-	if len(u.EthAddress) < 32 {
-		// return ErrRequied("eth address")
+// OK validates LoginUser
+func (u *LoginUser) OK() error {
+	if len(u.Password) == 0 {
+		return &ErrRequired{arg: "Password"}
 	}
-	// if ..
+	if len(u.EmailAddress) == 0 {
+		return &ErrRequired{arg: "Email Address"}
+	}
+	return nil
+}
+
+// OK validates User
+func (u *User) OK() error {
+	// mandatory values
+	r := NewRegexUtil()
+	if len(u.EmailAddress) == 0 {
+		return &ErrRequired{arg: "Email Address"}
+	} else if !r.MatchEmail(u.EmailAddress) {
+		return &ErrInvalidValue{arg: "Email Address"}
+	}
+	if len(u.Password) == 0 {
+		return &ErrRequired{arg: "Password"}
+	}
+	if len(u.UID) == 0 {
+		return &ErrRequired{arg: "Password"}
+	}
+	// non-mandatory values
+	if !(len(u.EthAddress) == 0) {
+		defer func() error {
+			if r := recover(); r != nil {
+				return &ErrInvalidValue{arg: "Ethereum Address"}
+			}
+			return nil
+		}()
+		common.StringToAddress(u.EthAddress)
+	}
+	//TODO: add other non-mandatory values used later on?
 	return nil
 }
 

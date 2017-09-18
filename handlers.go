@@ -14,7 +14,7 @@ import (
 func Index(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			handler.data = "Wellcome to Notary Platform"
+			handler.data = "Welcome to Notary Platform"
 			handler.ServeHTTP(w, r)
 		})
 	}
@@ -194,7 +194,7 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Unable to get private key! user: %v, err: %v", user, err))
 				handler.status = http.StatusInternalServerError
-				handler.data = "Server Error" // may be some meaningful message
+				handler.data = "Server Error" // TODO: may be some meaningful message
 				handler.ServeHTTP(w, r)
 			}
 
@@ -217,7 +217,7 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 				handler.ServeHTTP(w, r)
 			}
 
-			// Folow the normal flow
+			// Follow the normal flow
 			handler.status = http.StatusOK
 			handler.data = json
 			w.Header().Set("Content-Type", "application/json")
