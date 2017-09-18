@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/NTRYPlatform/ntry-backend/config"
 	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/dgrijalva/jwt-go/request"
 )
+
+type Token struct {
+	Token string `json:"token"`
+}
 
 func Index(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
@@ -106,7 +110,7 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 
 				handler.status = http.StatusCreated
 			}
-			// Should this be here?
+			// TODO: Should this be here?
 			// handler.data = u
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
@@ -135,13 +139,13 @@ func UpdateUserInfo(handler *Handler) Adapter {
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)
+			} else {
+				// Follow the normal flow
+				handler.status = http.StatusCreated
+				handler.data = true
+				w.Header().Set("Content-Type", "application/json")
+				h.ServeHTTP(w, r)
 			}
-
-			// Folow the normal flow
-			handler.status = http.StatusCreated
-			handler.data = true
-			w.Header().Set("Content-Type", "application/json")
-			h.ServeHTTP(w, r)
 		})
 	}
 }
@@ -162,6 +166,13 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 				handler.ServeHTTP(w, r)
 			}
 
+			// check if user is valid
+			if err := u.OK(); err != nil {
+				handler.status = http.StatusInternalServerError
+				handler.data = u.OK()
+				handler.ServeHTTP(w, r)
+			}
+
 			if user, err = handler.db.LoginUserValidation(u); err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Failed to verify user! user: %v, err: %v", u, err))
@@ -172,16 +183,16 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 
 			if user == nil {
 				handler.logger.Info(
-					fmt.Sprintf("[handler ] Ivalid credentials! user: %v", user))
+					fmt.Sprintf("[handler ] Invalid credentials! user: %v", user))
 				handler.status = http.StatusForbidden
 				handler.data = "Invalid credentials"
 				handler.ServeHTTP(w, r)
+				return
 			}
 
 			//TODO: trigger eth network check
 
 			// Create a map to store user claims
-			//TODO: from db
 			claims := UserJWT{
 				*user,
 				jwt.StandardClaims{
@@ -195,7 +206,7 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 
 			// Create token with claims
 			// TODO: might want to use signing method ECDSA with pvt key
-			token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+			token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 
 			pvtKey, err := conf.GetPvtKey()
 			if err != nil {
@@ -204,30 +215,32 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 				handler.status = http.StatusInternalServerError
 				handler.data = "Server Error" // TODO: may be some meaningful message
 				handler.ServeHTTP(w, r)
+				return
 			}
 
 			tokenString, err := token.SignedString(pvtKey)
-
 			if err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Error while signing the token! user: %v, err: %v", user, err))
 				handler.status = http.StatusInternalServerError
 				handler.data = "Error while signing the token"
 				handler.ServeHTTP(w, r)
+				return
 			}
 
-			json, err := json.Marshal(tokenString)
+			json, err := json.Marshal(&Token{tokenString})
 			if err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Error in json marshaling of token string! user: %v, err: %v", user, err))
 				handler.status = http.StatusInternalServerError
 				handler.data = "Internal Error"
 				handler.ServeHTTP(w, r)
+				return
 			}
 
 			// Follow the normal flow
 			handler.status = http.StatusOK
-			handler.data = json
+			handler.data = string(json)
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
 
@@ -237,85 +250,59 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 
 /* --------------- Middlewares ---------------- */
 
+//ValidateTokenMiddleware
 func ValidateTokenMiddleware(handler *Handler, conf *config.Config) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			pubKey, err := conf.GetPubKey()
-			if err != nil {
-				handler.logger.Error(
-					fmt.Sprintf("[handler ] Unable to get public key! err: %v", err))
-				handler.status = http.StatusInternalServerError
-				handler.data = "Unexpected Error"
-				handler.ServeHTTP(w, r)
+			var token string
+
+			// Get token from the Authorization header
+			// format: Authorization: Bearer
+			tokens, ok := r.Header["Authorization"]
+			if ok && len(tokens) >= 1 {
+				token = tokens[0]
+				token = strings.TrimPrefix(token, "Bearer ")
 			}
 
-			token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor,
-				func(token *jwt.Token) (interface{}, error) {
-					return pubKey, nil
-				})
+			// check if token is empty
+			if token == "" {
 
-			if err == nil {
-				if token.Valid {
+				handler.logger.Error(
+					fmt.Sprint("[handler ] Token string is empty!"))
+				handler.status = http.StatusForbidden
+				handler.data = "Token string is empty!"
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Parse token (TODO: Assuming pubkey will always be there)
+			key, _ := conf.GetPvtKey()
+			parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+					msg := fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+					return nil, msg
+				}
+				return key, nil
+			})
+
+			if err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Token couldn't be parsed! %v", err))
+				handler.status = http.StatusForbidden
+				handler.data = "Token couldn't be parsed!"
+				handler.ServeHTTP(w, r)
+			} else {
+				if parsedToken.Valid {
+					handler.status = http.StatusOK
 					h.ServeHTTP(w, r)
 				} else {
 					handler.logger.Info(
-						fmt.Sprint("[handler ] Invalid Token!"))
+						fmt.Sprintf("[handler ] Invalid Token! %v", err))
 					handler.status = http.StatusForbidden
 					handler.data = "Not allowed"
 					handler.ServeHTTP(w, r)
 				}
-			} else {
-				handler.logger.Error(
-					fmt.Sprint("[handler ] Unauthorized access!"))
-				handler.status = http.StatusForbidden
-				handler.data = "Unauthorized Access"
-				handler.ServeHTTP(w, r)
 			}
-		})
-	}
-}
-
-// AuthMiddleware
-func AuthMiddleware(handler *Handler, conf *config.Config) Adapter {
-	return func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			u := &User{}
-
-			// Create a map to store user claims
-			//TODO: from db
-			claims := UserJWT{
-				*u,
-				jwt.StandardClaims{
-					Id:       "someuserid",
-					IssuedAt: time.Now().Unix(),
-					// expires in an hour
-					ExpiresAt: time.Now().Add(time.Hour * 1).Unix(),
-					//TODO: change in production - should be configurable
-					Issuer: conf.GetServerAddress(),
-				},
-			}
-
-			// Create token with claims
-			// TODO: might want to use signing method ECDSA with pvt key
-			token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-			pvtKey, err := conf.GetPvtKey()
-			if err != nil {
-				handler.logger.Error(
-					fmt.Sprintf("[handler ] Unable to get private key! user: %v, err: %v", u, err))
-				handler.status = http.StatusInternalServerError
-				handler.data = "Server Error" // may be some meaningful message
-				handler.ServeHTTP(w, r)
-			}
-
-			// Sign the token with our secret
-			tokenString, _ := token.SignedString(pvtKey)
-
-			handler.logger.Info(
-				fmt.Sprintf("[handler ] Token string signed successfullly! user: %v, TokenString: %v", u, tokenString))
-
-			h.ServeHTTP(w, r)
 		})
 	}
 }

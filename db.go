@@ -112,7 +112,7 @@ func (d *dbServer) UserExistsByUniqueField(user *User) (bool, error) {
 	res := d.collection(defaultUserCollection).Find("uid = ? OR email_address = ?", (*user).UID, (*user).EmailAddress)
 	defer res.Close()
 	if count, err := res.Count(); err != nil {
-		d.logger.Error(fmt.Sprintf("Not cool!", err))
+		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
 		return false, err
 	} else if count > 0 {
 		return true, nil
@@ -132,7 +132,7 @@ func (d *dbServer) UpdateUser(user *User) (err error) {
 	defer res.Close()
 	err = res.Update(user)
 	if err != nil {
-		d.logger.Error(fmt.Sprintf("Not cool!", err))
+		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
 	}
 	return
 }
@@ -141,11 +141,11 @@ func (d *dbServer) UpdateUser(user *User) (err error) {
 func (d *dbServer) LoginUserValidation(user *LoginUser) (*User, error) {
 
 	u := User{}
-	res := d.collection(defaultUserCollection).Find("password = ? AND email_address = ?", (*user).Password, (*user).EmailAddress)
+	res := d.collection(defaultUserCollection).Find("password = ? AND email_address = ? AND account_verified = ?", (*user).Password, (*user).EmailAddress, true)
 	defer res.Close()
 	err := res.One(&u)
 	if err != nil {
-		d.logger.Error(fmt.Sprintf("Not cool!", err))
+		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
 		return nil, err
 	}
 	return &u, nil

@@ -19,19 +19,19 @@ type User struct {
 
 	EmailAddress string `db:"email_address" json:"email" binding:"required"`
 
-	TelephoneNumber string `db:"telephone_number" json:"phone"`
+	TelephoneNumber string `db:"telephone_number,omitempty" json:"phone"`
 
-	FirstName string `db:"first_name" json:"firstName"`
+	FirstName string `db:"first_name,omitempty" json:"firstName"`
 
-	LastName string `db:"last_name" json:"lastName"`
+	LastName string `db:"last_name,omitempty" json:"lastName"`
 
-	Address string `db:"address" json:"address"`
+	Address string `db:"address,omitempty" json:"address"`
 
 	AccountVerified bool `db:"account_verified" json:"accountVerified"`
 
 	RegTime time.Time `db:"reg_time" json:"regTime"`
 
-	EthAddressVerification string `db:"eth_verification" json:"ethVerification"`
+	EthAddressVerification string `db:"eth_verification,omitempty" json:"ethVerification"`
 }
 
 // UserJWT the custom JWT token
