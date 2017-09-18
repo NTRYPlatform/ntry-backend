@@ -99,7 +99,6 @@ func (u *User) String() string {
 	return fmt.Sprintf(`
 	UID:     %v
 	EthAddress:     %v
-	Password:     %v
 	EmailAddress:       %v
 	TelephoneNumber:    %v
 	FirstName: %v
@@ -111,7 +110,6 @@ func (u *User) String() string {
 	`,
 		u.UID,
 		u.EthAddress,
-		u.Password,
 		u.EmailAddress,
 		u.TelephoneNumber,
 		u.FirstName,

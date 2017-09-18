@@ -60,49 +60,57 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 				handler.ServeHTTP(w, r)
 			}
 
-			// check for pre-exsitance
-			if ok, err := handler.db.UserExistsByUniqueField(u); err != nil {
+			// check if user is valid
+			if err := u.OK(); err != nil {
+				handler.status = http.StatusInternalServerError
+				handler.data = u.OK()
+				handler.ServeHTTP(w, r)
+			}
+
+			// check for pre-existence
+			if exists, err := handler.db.UserExistsByUniqueField(u); err != nil {
 
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)
 
-			} else if ok {
+			} else if exists {
 
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] User with either of these values already exists!user: %v, err: %v", u, err))
 				handler.status = http.StatusInternalServerError
-				handler.data = "User already Exist"
+				handler.data = "User already Exists"
 				handler.ServeHTTP(w, r)
+			} else {
+				u.RegTime = time.Now().UTC()
+
+				if err := handler.db.Insert(u); err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] User insertion to db error! user: %v, err: %v", u, err))
+					handler.status = http.StatusInternalServerError
+					handler.data = err
+					handler.ServeHTTP(w, r)
+				}
+
+				handler.logger.Info(fmt.Sprint("[handler ] User successfully saved to db!", u.String()))
+
+				msg := verificationAccountMessage(email.from, u.EmailAddress, u.UID)
+
+				if err := email.sendEmail(u.EmailAddress, msg); err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Failed to send verification email! user: %v, err: %v", u, err))
+					handler.status = http.StatusInternalServerError
+					handler.data = err
+					handler.ServeHTTP(w, r)
+				}
+
+				handler.status = http.StatusCreated
 			}
-
-			u.RegTime = time.Now().UTC()
-
-			if err := handler.db.Insert(u); err != nil {
-				handler.logger.Error(
-					fmt.Sprintf("[handler ] User insertion to db error!user: %v, err: %v", u, err))
-				handler.status = http.StatusInternalServerError
-				handler.data = err
-				handler.ServeHTTP(w, r)
-			}
-
-			handler.logger.Info(fmt.Sprint("[handler ] User successfully saved to db!", u.String()))
-
-			msg := verificationAccountMessage(email.from, u.EmailAddress, u.UID)
-
-			if err := email.sendEmail(u.EmailAddress, msg); err != nil {
-				handler.logger.Error(
-					fmt.Sprintf("[handler ] Failed to send verification email! user: %v, err: %v", u, err))
-				handler.status = http.StatusInternalServerError
-				handler.data = err
-				handler.ServeHTTP(w, r)
-			}
-
-			// Folow the normal flow
-			handler.status = http.StatusOK
-			handler.data = u
+			// Should this be here?
+			// handler.data = u
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
+
 		})
 	}
 }
@@ -116,7 +124,7 @@ func UpdateUserInfo(handler *Handler) Adapter {
 				// Set error data and jump to the last handler
 				// implemented by *Handler
 				handler.status = http.StatusInternalServerError
-				w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+				// w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 				handler.data = err
 				handler.ServeHTTP(w, r)
 			}

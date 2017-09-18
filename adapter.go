@@ -49,13 +49,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	/**
-	 * TODO: When I write status code to header then it shows
-	 * error: '2017/09/15 12:48:10 http: multiple response.WriteHeader calls'
-	 * Needs to figure out
-	 **/
-	// w.WriteHeader(h.status)
+
+	w.WriteHeader(h.status)
 	if _, err := io.Copy(w, &buf); err != nil {
-		h.logger.Error(fmt.Sprintf("[adapter ] respond: ", err))
+		h.logger.Error(fmt.Sprintf("[adapter ] respond: %s", err))
 	}
 }

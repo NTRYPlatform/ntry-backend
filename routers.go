@@ -13,7 +13,6 @@ func (n *Notary) muxServer() (router *mux.Router) {
 	router = mux.NewRouter()
 
 	router.Handle("/", Adapt(handler, Index(handler), Logging(handler)))
-
 	router.Handle("/sign-up", Adapt(handler, CreateUser(handler, n.email), Logging(handler)))
 	// //TODO: technically should be restricted
 	router.Handle("/update-info", Adapt(handler, UpdateUserInfo(handler), Logging(handler)))
