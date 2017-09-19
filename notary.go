@@ -133,31 +133,40 @@ func (n *Notary) makeID() error {
 
 func (n *Notary) Start() error {
 
-	// TODO:
-	// Move this to eth package and connect with pipeline
-	go func() {
-		for {
-			select {
-			case ethLog := <-n.ethClient.Events:
-				n.logger.Info(fmt.Sprintf("[notary  ] %+v", ethLog))
-				data := hex.EncodeToString(ethLog.Data)
-				address := data[24:64]
-				uid := data[64:96]
-				n.logger.Info(fmt.Sprintf("Address: %s, UID: %s, Tx Hash: %s", address, uid, ethLog.TxHash.String()))
-				// u := app.VerifyUser(uid, address, ethLog.TxHash.String())
-				// if err := d.UpdateUser(u, uid); err != nil {
-				// 	log.Printf("Couldn't update user email verification! %v", err.Error())
-				// }
-				// app.WriteToRegisterChannel("{\"registered\":true}")
-			}
-		}
-	}()
+	go n.EthWatcher()
 
 	router := n.muxServer()
 	addr := n.conf.GetServerAddress()
 	//TODO:generate cert and serve on TLS
 	n.logger.Info("[notary  ] Server waiting for request...")
 	return http.ListenAndServe(addr, router)
+}
+
+func (n *Notary) EthWatcher() {
+	out := make(chan string)
+	err := make(chan struct{})
+
+	go WriteToRegisterChannel(out, err)
+
+	for {
+		select {
+		case ethLog := <-n.ethClient.Events:
+			n.logger.Info(fmt.Sprintf("[notary  ] %+v", ethLog))
+			data := hex.EncodeToString(ethLog.Data)
+			address := data[24:64]
+			uid := data[64:96]
+			n.logger.Info(fmt.Sprintf("Address: %s, UID: %s, Tx Hash: %s", address, uid, ethLog.TxHash.String()))
+			u := VerifyUser(uid, address, ethLog.TxHash.String())
+			if err := n.db.UpdateUser(u); err != nil {
+				n.logger.Error(fmt.Sprintf("Couldn't update user email verification! %v", err.Error()))
+			} else {
+				out <- "{\"registered\":true}" + uid
+			}
+		case <-err:
+			n.logger.Error("WebSocket register stopped working, Stoping eth watcher")
+			return
+		}
+	}
 }
 
 func (n *Notary) Shutdown() error {

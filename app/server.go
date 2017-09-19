@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "encoding/hex"
 	"fmt"
 	"os"
 	"os/signal"
