@@ -1,72 +1,40 @@
 package notary
 
-// import (
-// 	"errors"
-// 	"fmt"
-// 	"io/ioutil"
-// 	"math/rand"
-// 	"strings"
-// 	"time"
+import "fmt"
+import "regexp"
 
-// 	"github.com/Unknwon/com"
-// 	log "go.uber.org/zap"
-// 	"golang.org/x/crypto/openpgp"
-// )
+type RegexUtil struct {
+	email *regexp.Regexp
+}
 
-// // courtesy of SO:https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-golang
-// const (
-// 	letterBytes   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
-// 	letterIdxBits = 6                    // 6 bits to represent a letter index
-// 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-// 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-// )
+type ErrRequired struct {
+	error
+	arg string
+}
 
-// var src = rand.NewSource(time.Now().UnixNano())
+type ErrInvalidValue struct {
+	error
+	arg string
+}
 
-// // var publicKey = "/home/someone/Downloads/pub-key.txt"
-// // var signatureFile = "/home/someone/Downloads/singed.txt"
+func (e *ErrRequired) Error() string {
+	return fmt.Sprintf("%s is required!", e.arg)
+}
 
-// // RandString generates random string of size n
-// func RandString(n int) string {
-// 	b := make([]byte, n)
-// 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-// 	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-// 		if remain == 0 {
-// 			cache, remain = src.Int63(), letterIdxMax
-// 		}
-// 		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-// 			b[i] = letterBytes[idx]
-// 			i--
-// 		}
-// 		cache >>= letterIdxBits
-// 		remain--
-// 	}
+func (e *ErrInvalidValue) Error() string {
+	return fmt.Sprintf("%s is invalid!", e.arg)
+}
 
-// 	return string(b)
-// }
+func NewRegexUtil() *RegexUtil {
+	r := RegexUtil{}
+	if e, err := regexp.Compile("(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$)"); err != nil {
+		fmt.Errorf("Couldn't compile regex! %v", err.Error())
+	} else {
+		r.email = e
+	}
+	return &r
+}
 
-// // VerifySignature verifies thesignature
-// func VerifySignature(keyRing, signature, target string) (valid bool) {
-
-// 	valid = false
-// 	keyReader := strings.NewReader(keyRing)
-
-// 	targetReader := strings.NewReader(target)
-
-// 	signatureReader := strings.NewReader(signature)
-
-// 	keyring, err := openpgp.ReadArmoredKeyRing(keyReader)
-// 	if err != nil {
-// 		log.Printf("Read Armored Key Ring: %v ", err.Error())
-// 		return
-// 	}
-
-// 	_, err = openpgp.CheckArmoredDetachedSignature(keyring, targetReader, signatureReader)
-// 	if err != nil {
-// 		log.Printf("Check Detached Signature: %v ", err.Error())
-// 		return
-// 	}
-
-// 	valid = true
-// 	return
-// }
+func (r *RegexUtil) MatchEmail(email string) bool {
+	return r.email.Match([]byte(email))
+}

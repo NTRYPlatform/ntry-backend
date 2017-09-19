@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
@@ -17,19 +19,19 @@ type User struct {
 
 	EmailAddress string `db:"email_address" json:"email" binding:"required"`
 
-	TelephoneNumber string `db:"telephone_number" json:"phone"`
+	TelephoneNumber string `db:"telephone_number,omitempty" json:"phone"`
 
-	FirstName string `db:"first_name" json:"firstName"`
+	FirstName string `db:"first_name,omitempty" json:"firstName"`
 
-	LastName string `db:"last_name" json:"lastName"`
+	LastName string `db:"last_name,omitempty" json:"lastName"`
 
-	Address string `db:"address" json:"address"`
+	Address string `db:"address,omitempty" json:"address"`
 
 	AccountVerified bool `db:"account_verified" json:"accountVerified"`
 
 	RegTime time.Time `db:"reg_time" json:"regTime"`
 
-	EthAddressVerification string `db:"eth_verification" json:"ethVerification"`
+	EthAddressVerification string `db:"eth_verification,omitempty" json:"ethVerification"`
 }
 
 // UserJWT the custom JWT token
@@ -53,11 +55,43 @@ func GetUserByAddress(uid string) (*User, error) {
 	return nil, nil
 }
 
-func (u *User) OK() error {
-	if len(u.EthAddress) < 32 {
-		// return ErrRequied("eth address")
+// OK validates LoginUser
+func (u *LoginUser) OK() error {
+	if len(u.Password) == 0 {
+		return &ErrRequired{arg: "Password"}
 	}
-	// if ..
+	if len(u.EmailAddress) == 0 {
+		return &ErrRequired{arg: "Email Address"}
+	}
+	return nil
+}
+
+// OK validates User
+func (u *User) OK() error {
+	// mandatory values
+	r := NewRegexUtil()
+	if len(u.EmailAddress) == 0 {
+		return &ErrRequired{arg: "Email Address"}
+	} else if !r.MatchEmail(u.EmailAddress) {
+		return &ErrInvalidValue{arg: "Email Address"}
+	}
+	if len(u.Password) == 0 {
+		return &ErrRequired{arg: "Password"}
+	}
+	if len(u.UID) == 0 {
+		return &ErrRequired{arg: "Password"}
+	}
+	// non-mandatory values
+	if !(len(u.EthAddress) == 0) {
+		defer func() error {
+			if r := recover(); r != nil {
+				return &ErrInvalidValue{arg: "Ethereum Address"}
+			}
+			return nil
+		}()
+		common.StringToAddress(u.EthAddress)
+	}
+	//TODO: add other non-mandatory values used later on?
 	return nil
 }
 
@@ -65,7 +99,6 @@ func (u *User) String() string {
 	return fmt.Sprintf(`
 	UID:     %v
 	EthAddress:     %v
-	Password:     %v
 	EmailAddress:       %v
 	TelephoneNumber:    %v
 	FirstName: %v
@@ -77,7 +110,6 @@ func (u *User) String() string {
 	`,
 		u.UID,
 		u.EthAddress,
-		u.Password,
 		u.EmailAddress,
 		u.TelephoneNumber,
 		u.FirstName,
