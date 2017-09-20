@@ -29,6 +29,7 @@ type Notary struct {
 	cancel    context.CancelFunc
 }
 
+// New returns ninstance of Notary
 func New(args map[string]interface{}) (*Notary, error) {
 	var (
 		logPath       = args["--logpath"].(string)
