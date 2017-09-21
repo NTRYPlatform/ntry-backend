@@ -141,12 +141,17 @@ func (d *dbServer) UpdateUser(user *User) (err error) {
 func (d *dbServer) LoginUserValidation(user *LoginUser) (*User, error) {
 
 	u := User{}
-	res := d.collection(defaultUserCollection).Find("password = ? AND email_address = ? AND account_verified = ?", (*user).Password, (*user).EmailAddress, true)
+	res := d.collection(defaultUserCollection).Find("password = ? AND email_address = ?", (*user).Password, (*user).EmailAddress)
+	d.logger.Info(fmt.Sprintf("Query created: %v", res))
 	defer res.Close()
 	err := res.One(&u)
 	if err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
 		return nil, err
+	}
+	d.logger.Info(fmt.Sprintf("User: %v", u))
+	if !u.AccountVerified {
+		return nil, nil
 	}
 	return &u, nil
 }
