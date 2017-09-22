@@ -11,6 +11,7 @@ import (
 
 	"github.com/NTRYPlatform/ntry-backend/config"
 	"github.com/NTRYPlatform/ntry-backend/eth"
+	"github.com/NTRYPlatform/ntry-backend/ws"
 	uuid "github.com/satori/go.uuid"
 	log "go.uber.org/zap"
 	"upper.io/db.v3/mysql"
@@ -147,7 +148,7 @@ func (n *Notary) EthWatcher() {
 	out := make(chan string)
 	err := make(chan struct{})
 
-	go WriteToRegisterChannel(out, err)
+	go ws.WriteToRegisterChannel(out, err)
 
 	for {
 		select {
@@ -161,10 +162,10 @@ func (n *Notary) EthWatcher() {
 			if err := n.db.UpdateUser(u); err != nil {
 				n.logger.Error(fmt.Sprintf("Couldn't update user email verification! %v", err.Error()))
 			} else {
-				out <- "{\"registered\":true}" + uid
+				out <- uid
 			}
 		case <-err:
-			n.logger.Error("WebSocket register stopped working, Stoping eth watcher")
+			n.logger.Error("WebSocket register stopped working, stopping eth watcher")
 			return
 		}
 	}
