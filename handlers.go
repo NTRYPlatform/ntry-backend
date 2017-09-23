@@ -87,7 +87,7 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 				handler.ServeHTTP(w, r)
 			} else {
 				u.RegTime = time.Now().UTC()
-
+				u.AccountVerified = false
 				if err := handler.db.Insert(u); err != nil {
 					handler.logger.Error(
 						fmt.Sprintf("[handler ] User insertion to db error! user: %v, err: %v", u, err))

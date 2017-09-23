@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -8,13 +9,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// connection is an middleman between the websocket connection and the hub.
-type connection struct {
-	ws   *websocket.Conn
-	send chan []byte
-}
-
-var clients = make(map[*websocket.Conn]bool) // connected clients
 var subscribers = make(map[string]*websocket.Conn)
 
 func WriteToRegisterChannel(register <-chan string, err chan<- struct{}) {
@@ -25,9 +19,9 @@ func WriteToRegisterChannel(register <-chan string, err chan<- struct{}) {
 		case m := <-register:
 			// Send it out to the user it needs to go to
 			if client, ok := subscribers[m]; ok {
-				err := client.WriteJSON(m)
+				err := client.WriteJSON("{\"registered\":true, \"uid\":\"" + m + "\"}")
 				if err != nil {
-					//TODO: log
+					fmt.Printf("Error writing to connection for user: %s\n", m)
 				}
 				client.Close()
 				delete(subscribers, m)
@@ -53,7 +47,6 @@ func ServeWs(w http.ResponseWriter, r *http.Request) {
 		// log.Println(err)
 		return
 	}
-	// defer ws.Close()
 	//TODO: figure out a way to unregister/close
 
 	subscribers[v["uid"]] = ws

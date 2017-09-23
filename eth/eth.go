@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+// EthClient creates an ethereum client with channel for logs subscription
 type EthClient struct {
 	client  *ethclient.Client
 	Events  chan types.Log
@@ -24,54 +25,54 @@ func NewEthClient(ipc string) (*EthClient, error) {
 
 	client, err := getClient(ipc)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to connect Ethereum client: %v", err.Error()))
+		return nil, errors.New(fmt.Sprintf("Failed to connect Ethereum client: %v\n", err.Error()))
 	}
 
-	log.Printf("Ethereum client created: %v", client)
+	fmt.Printf("Ethereum client created: %v\n", client)
 
 	return &EthClient{client: client, Events: make(chan types.Log, 100), gethIPC: ipc}, nil
 }
 
+//TODO: singleton
 func getClient(ipc string) (client *ethclient.Client, err error) {
 	client, err = ethclient.Dial(ipc)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to connect Ethereum client: %v", err.Error()))
+		return nil, errors.New(fmt.Sprintf("Failed to connect Ethereum client: %v\n", err.Error()))
 	}
 	return
 }
 
 func (e *EthClient) SubscribeToMapperContract(mapperContract string) error {
 
-	// May be we need this, I don't know how this channel is being used deep inside
-	// ethereum so lets try without making a copy
-	// ch := e.events
 	c := e.client
 
 	if c != nil {
 		_, err := c.SubscribeFilterLogs(context.TODO(), ethereum.FilterQuery{Addresses: []common.Address{common.HexToAddress(mapperContract)}}, e.Events)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Can't subscribe to contract logs: %v", err.Error()))
+			return errors.New(fmt.Sprintf("Can't subscribe to contract logs: %v\n", err.Error()))
 		}
-		log.Printf("Subscribed to mapper contract @ %s", mapperContract)
+		fmt.Printf("Subscribed to mapper contract @ %s", mapperContract)
 		return nil
 	}
 	return errors.New("Eth Client is not initialized")
 }
 
-//deployMapperContract deploys mapper contract to the configured ethereum network
+//TODO: either remove or update
+
+//DeployMapperContract deploys mapper contract to the configured ethereum network
 func (e *EthClient) DeployMapperContract(key, passphrase string) (string, error) {
-	log.Println("Trying to deploy mapper contract...")
+	fmt.Println("Trying to deploy mapper contract...")
 	// Create an IPC based RPC connection to a remote node and an authorized transactor
 	// conn, err := getClient(e.gethIPC)
 
 	auth, err := bind.NewTransactor(strings.NewReader(key), passphrase)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to create authorized transactor: %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to create authorized transactor: %v\n", err))
 	}
 	// Deploy a new awesome contract for the binding demo
 	address, tx, _, err := DeployMapper(auth, e.client)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to deploy new token contract: %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to deploy new token contract: %v\n", err))
 	}
 	log.Printf("Contract pending deployment: 0x%x\n", address)
 	log.Printf("Transaction waiting to be mined: 0x%x\n\n", tx.Hash())
