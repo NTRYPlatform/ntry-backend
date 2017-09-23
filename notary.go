@@ -67,7 +67,7 @@ func (n *Notary) Init() error {
 	// Conf and DB structs have publid variables
 	// as well as Getters, access must be filtered
 	dbConf := n.conf.GetDatabaseSettings()
-	script, err := dbConf.GetDBSrcipts()
+	script, err := dbConf.GetDBScript()
 	if err != nil {
 		return err
 	}

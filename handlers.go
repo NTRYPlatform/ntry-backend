@@ -62,6 +62,7 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)
+				return
 			}
 
 			// check if user is valid
@@ -69,6 +70,7 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 				handler.status = http.StatusInternalServerError
 				handler.data = u.OK()
 				handler.ServeHTTP(w, r)
+				return
 			}
 
 			// check for pre-existence
@@ -77,6 +79,7 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)
+				return
 
 			} else if exists {
 
@@ -85,15 +88,17 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 				handler.status = http.StatusInternalServerError
 				handler.data = "User already Exists"
 				handler.ServeHTTP(w, r)
+				return
 			} else {
 				u.RegTime = time.Now().UTC()
 				u.AccountVerified = false
-				if err := handler.db.Insert(u); err != nil {
+				if err := handler.db.Insert(u, UserCollection); err != nil {
 					handler.logger.Error(
 						fmt.Sprintf("[handler ] User insertion to db error! user: %v, err: %v", u, err))
 					handler.status = http.StatusInternalServerError
 					handler.data = err
 					handler.ServeHTTP(w, r)
+					return
 				}
 
 				handler.logger.Info(fmt.Sprint("[handler ] User successfully saved to db!", u.String()))
@@ -106,6 +111,7 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 					handler.status = http.StatusInternalServerError
 					handler.data = err
 					handler.ServeHTTP(w, r)
+					return
 				}
 
 				handler.status = http.StatusCreated
@@ -131,6 +137,7 @@ func UpdateUserInfo(handler *Handler) Adapter {
 				// w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 				handler.data = err
 				handler.ServeHTTP(w, r)
+				return
 			}
 
 			if err := handler.db.UpdateUser(u); err != nil {
@@ -139,13 +146,15 @@ func UpdateUserInfo(handler *Handler) Adapter {
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)
-			} else {
-				// Follow the normal flow
-				handler.status = http.StatusCreated
-				handler.data = true
-				w.Header().Set("Content-Type", "application/json")
-				h.ServeHTTP(w, r)
+				return
 			}
+			// Follow the normal flow
+			handler.status = http.StatusCreated
+			handler.data = true
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
 		})
 	}
 }
@@ -164,6 +173,7 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 				handler.status = http.StatusForbidden
 				handler.data = err
 				handler.ServeHTTP(w, r)
+				return
 			}
 
 			// check if user is valid
@@ -171,6 +181,7 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 				handler.status = http.StatusInternalServerError
 				handler.data = u.OK()
 				handler.ServeHTTP(w, r)
+				return
 			}
 
 			if user, err = handler.db.LoginUserValidation(u); err != nil {
@@ -179,6 +190,7 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 				handler.status = http.StatusForbidden
 				handler.data = err
 				handler.ServeHTTP(w, r)
+				return
 			}
 
 			if user == nil {

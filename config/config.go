@@ -68,7 +68,7 @@ func (c *Config) GetDatabaseSettings() *Database {
 }
 
 // GetDatabaseSettings returns Database struct
-func (d *Database) GetDBSrcipts() (string, error) {
+func (d *Database) GetDBScript() (string, error) {
 	script, err := readfile(d.Script)
 	if err != nil {
 		return "", err

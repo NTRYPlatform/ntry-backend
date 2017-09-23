@@ -1,15 +1,15 @@
 package notary
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 
 	log "go.uber.org/zap"
 )
 
+type response struct {
+	Resp interface{} `json:"response"`
+}
 type Adapter func(http.Handler) http.Handler
 
 // Adapt h with all specified adapters.
@@ -44,14 +44,13 @@ type Handler struct {
  * Respond to request
  */
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(h.data); err != nil {
+	res, err := json.Marshal(&response{h.data})
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(h.status)
-	if _, err := io.Copy(w, &buf); err != nil {
-		h.logger.Error(fmt.Sprintf("[adapter ] respond: %s", err))
-	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(res)
 }
