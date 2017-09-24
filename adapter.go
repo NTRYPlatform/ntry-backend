@@ -2,6 +2,7 @@ package notary
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	log "go.uber.org/zap"
@@ -52,5 +53,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(h.status)
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(res)
+	if _, err := w.Write(res); err != nil {
+		h.logger.Error(fmt.Sprintf("[adapter ] Error while trying to write response: %s", err))
+	}
 }
