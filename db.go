@@ -9,8 +9,12 @@ import (
 	"upper.io/db.v3/mysql" // mysql adapter
 )
 
+// TODO:config
 const (
-	defaultUserCollection = `user`
+	UserCollection   = `user`
+	UserContacts     = `user_to_user`
+	CarContract      = `car_contract`
+	CarContractUsers = `car_contract_user`
 )
 
 type dbServer struct {
@@ -46,12 +50,13 @@ func dbInit(script string, settings mysql.ConnectionURL, logger *log.Logger) (*d
 		return &d, nil
 	}
 
-	logger.Info(fmt.Sprint("Initializing database ...", defaultUserCollection))
+	logger.Info(fmt.Sprint("Initializing database ...", UserCollection))
 	// Collection does not exists, let's create it.
 	// Execute CREATE TABLE.
-	if _, err = d.sess.Exec(script); err != nil {
-		return nil, err
-	}
+	// TODO: This doesn't work with the new script... will have to figure this out
+	// if _, err = d.sess.Exec(script); err != nil {
+	// 	return nil, err
+	// }
 
 	return &d, nil
 }
@@ -79,7 +84,7 @@ func dbInit(script string, settings mysql.ConnectionURL, logger *log.Logger) (*d
 // }
 
 // Returns true if collection already exist
-func (d *dbServer) ColectionExist(name string) bool {
+func (d *dbServer) CollectionExist(name string) bool {
 	return d.sess.Collection(name).Exists()
 }
 
@@ -87,18 +92,17 @@ func (d *dbServer) CreateCollection(name, script string) error {
 	if _, err := d.sess.Exec(script); err != nil {
 		d.logger.Error(fmt.Sprintf("Couldn't create table! should be Shutting down..."))
 		return err
-	} else {
-		d.logger.Info(fmt.Sprint("Collection created successfully: ", name))
-		return nil
 	}
+	d.logger.Info(fmt.Sprint("Collection created successfully: ", name))
+	return nil
 }
 
 //TODO: might want to add salt to the pwd
-// InsertUser inserts new user in the database
-func (d *dbServer) Insert(anything interface{}) error {
-	_, err := d.collection(defaultUserCollection).Insert(anything)
+// InsertUser inserts new row in the database, in the given collection
+func (d *dbServer) Insert(anything interface{}, collection string) error {
+	_, err := d.collection(collection).Insert(anything)
 	if err != nil {
-		d.logger.Error(fmt.Sprintf("Oops! User couldn't be added!", err))
+		d.logger.Error(fmt.Sprintf("Oops! User couldn't be added! %v", err))
 		return err
 	}
 
@@ -109,7 +113,7 @@ func (d *dbServer) Insert(anything interface{}) error {
 // UserExistsByUniqueField returns boolean whether user exists by particular field value
 func (d *dbServer) UserExistsByUniqueField(user *User) (bool, error) {
 
-	res := d.collection(defaultUserCollection).Find("uid = ? OR email_address = ?", (*user).UID, (*user).EmailAddress)
+	res := d.collection(UserCollection).Find("uid = ? OR email_address = ?", (*user).UID, (*user).EmailAddress)
 	defer res.Close()
 	if count, err := res.Count(); err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
@@ -128,7 +132,7 @@ func (d *dbServer) collection(collection string) db.Collection {
 // UpdateUser returns boolean whether user was updated or not
 func (d *dbServer) UpdateUser(user *User) (err error) {
 
-	res := d.collection(defaultUserCollection).Find("uid = ?", user.UID)
+	res := d.collection(UserCollection).Find("uid = ?", user.UID)
 	defer res.Close()
 	err = res.Update(user)
 	if err != nil {
@@ -141,19 +145,24 @@ func (d *dbServer) UpdateUser(user *User) (err error) {
 func (d *dbServer) LoginUserValidation(user *LoginUser) (*User, error) {
 
 	u := User{}
-	res := d.collection(defaultUserCollection).Find("password = ? AND email_address = ? AND account_verified = ?", (*user).Password, (*user).EmailAddress, true)
+	res := d.collection(UserCollection).Find("password = ? AND email_address = ?", (*user).Password, (*user).EmailAddress)
+	d.logger.Info(fmt.Sprintf("Query created: %v", res))
 	defer res.Close()
 	err := res.One(&u)
 	if err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
 		return nil, err
 	}
+	d.logger.Info(fmt.Sprintf("User: %v", u))
+	if !u.AccountVerified {
+		return nil, nil
+	}
 	return &u, nil
 }
 
 func (d *dbServer) GetUserByUID(uid string) *User {
 	u := User{}
-	res := d.collection(defaultUserCollection).Find("uid = ?", uid)
+	res := d.collection(UserCollection).Find("uid = ?", uid)
 	defer res.Close()
 	err := res.Update(&u)
 	if err != nil {
