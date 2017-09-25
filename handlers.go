@@ -9,6 +9,7 @@ import (
 
 	"github.com/NTRYPlatform/ntry-backend/config"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/mux"
 )
 
 type Token struct {
@@ -53,9 +54,7 @@ func Authorization(handler *Handler) Adapter {
 func CreateUser(handler *Handler, email *emailConf) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 			u := &User{}
-
 			if err := decode(r, u); err != nil {
 				// Set error data and jump to the last handler
 				// implemented by *Handler
@@ -68,21 +67,19 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 			// check if user is valid
 			if err := u.OK(); err != nil {
 				handler.status = http.StatusInternalServerError
-				handler.data = u.OK()
+				handler.data = err
 				handler.ServeHTTP(w, r)
 				return
 			}
 
 			// check for pre-existence
 			if exists, err := handler.db.UserExistsByUniqueField(u); err != nil {
-
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)
 				return
 
 			} else if exists {
-
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] User with either of these values already exists!user: %v, err: %v", u, err))
 				handler.status = http.StatusInternalServerError
@@ -90,7 +87,8 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 				handler.ServeHTTP(w, r)
 				return
 			} else {
-				u.RegTime = time.Now().UTC()
+				cTime := time.Now().UTC()
+				u.RegTime = &cTime
 				u.AccountVerified = false
 				if err := handler.db.Insert(u, UserCollection); err != nil {
 					handler.logger.Error(
@@ -115,10 +113,9 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 				}
 
 				handler.status = http.StatusCreated
+				handler.data = u.UID
 			}
-			// TODO: Should this be here?
-			// handler.data = u
-			w.Header().Set("Content-Type", "application/json")
+
 			h.ServeHTTP(w, r)
 
 		})
@@ -129,7 +126,6 @@ func UpdateUserInfo(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			u := &User{}
-
 			if err := decode(r, u); err != nil {
 				// Set error data and jump to the last handler
 				// implemented by *Handler
@@ -151,6 +147,31 @@ func UpdateUserInfo(handler *Handler) Adapter {
 			// Follow the normal flow
 			handler.status = http.StatusCreated
 			handler.data = true
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
+func SearchUsers(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			v := mux.Vars(r)
+			users, err := handler.db.SearchUserByName(v["q"])
+			if err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Failed to fetch users with query: %v", v["q"]))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = users
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
 			return
@@ -253,7 +274,6 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 			// Follow the normal flow
 			handler.status = http.StatusOK
 			handler.data = string(json)
-			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
 
 		})
@@ -303,18 +323,19 @@ func ValidateTokenMiddleware(handler *Handler, conf *config.Config) Adapter {
 				handler.status = http.StatusForbidden
 				handler.data = "Token couldn't be parsed!"
 				handler.ServeHTTP(w, r)
-			} else {
-				if parsedToken.Valid {
-					handler.status = http.StatusOK
-					h.ServeHTTP(w, r)
-				} else {
-					handler.logger.Info(
-						fmt.Sprintf("[handler ] Invalid Token! %v", err))
-					handler.status = http.StatusForbidden
-					handler.data = "Not allowed"
-					handler.ServeHTTP(w, r)
-				}
+				return
 			}
+			if parsedToken.Valid {
+				handler.status = http.StatusOK
+				h.ServeHTTP(w, r)
+			} else {
+				handler.logger.Info(
+					fmt.Sprintf("[handler ] Invalid Token! %v", err))
+				handler.status = http.StatusForbidden
+				handler.data = "Not allowed"
+				handler.ServeHTTP(w, r)
+			}
+
 		})
 	}
 }

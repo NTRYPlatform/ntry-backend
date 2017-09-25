@@ -18,6 +18,7 @@ func (n *Notary) muxServer() (router *mux.Router) {
 	//TODO: specify .Headers()
 	// //TODO: technically should be restricted
 	router.Handle("/update-info", Adapt(handler, UpdateUserInfo(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")
+	router.Handle("/search/{q}", Adapt(handler, SearchUsers(handler), Logging(handler))).Methods("GET")
 	router.HandleFunc("/subscribe/register/{uid}", ws.ServeWs).Methods("GET")
 	router.Handle("/sign-in", Adapt(handler, LoginHandler(handler, n.conf), Logging(handler))).Methods("POST")
 	router.Handle("/send-invitation", Adapt(handler, NotImplemented(handler), Logging(handler))).Methods("GET")

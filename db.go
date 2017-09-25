@@ -50,7 +50,7 @@ func dbInit(script string, settings mysql.ConnectionURL, logger *log.Logger) (*d
 		return &d, nil
 	}
 
-	logger.Info(fmt.Sprint("Initializing database ...", UserCollection))
+	d.logger.Info(fmt.Sprint("Initializing database ...", UserCollection))
 	// Collection does not exists, let's create it.
 	// Execute CREATE TABLE.
 	// TODO: This doesn't work with the new script... will have to figure this out
@@ -129,10 +129,10 @@ func (d *dbServer) collection(collection string) db.Collection {
 }
 
 //TODO: This could change everything... edit so it would only change certain fields
-// UpdateUser returns boolean whether user was updated or not
+// UpdateUser updates user and returns error if any
 func (d *dbServer) UpdateUser(user *User) (err error) {
-
-	res := d.collection(UserCollection).Find("uid = ?", user.UID)
+	res := d.collection(UserCollection).Find("uid = ?", (*user).UID)
+	d.logger.Info(fmt.Sprintf("Query created: %v", res))
 	defer res.Close()
 	err = res.Update(user)
 	if err != nil {
@@ -164,21 +164,24 @@ func (d *dbServer) GetUserByUID(uid string) *User {
 	u := User{}
 	res := d.collection(UserCollection).Find("uid = ?", uid)
 	defer res.Close()
-	err := res.Update(&u)
+	err := res.One(&u)
 	if err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err.Error()))
 	}
 	return &u
 }
 
-// // GetUserValidationCode
-// func (d *dbServer) GetUserValidationCode(user *VerifyUserSignature) string {
-// 	u := User{}
-// 	res := d.collection(defaultUserCollection).Find("secondary_address = ?", (*user).PubKey)
-// 	defer res.Close()
-// 	err := res.Select("verification_code").One(&u)
-// 	if err != nil {
-// 		log.Println("Not cool!", err)
-// 	}
-// 	return u.VerificationCode
-// }
+// SearchUserByName returns users by search string
+func (d *dbServer) SearchUserByName(name string) ([]User, error) {
+	var users []User
+	d.logger.Info(fmt.Sprintf("Search for user by name: %s", name))
+	c := fmt.Sprintf("%%%s%%", name)
+	cond :=
+		db.Or(
+			db.Cond{"first_name LIKE": c},
+			db.Cond{"last_name LIKE": c})
+	res := d.collection(UserCollection).Find(cond)
+	defer res.Close()
+	err := res.All(&users)
+	return users, err
+}

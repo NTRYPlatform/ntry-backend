@@ -29,7 +29,7 @@ type User struct {
 
 	AccountVerified bool `db:"account_verified" json:"accountVerified"`
 
-	RegTime time.Time `db:"reg_time" json:"regTime"`
+	RegTime *time.Time `db:"reg_time" json:"regTime"`
 
 	EthAddressVerification string `db:"eth_verification,omitempty" json:"ethVerification"`
 }
@@ -47,7 +47,7 @@ type LoginUser struct {
 
 // VerifyUser sets verification info
 func VerifyUser(uid, address, txHash string) *User {
-	return &User{EthAddress: address, EthAddressVerification: txHash, AccountVerified: true}
+	return &User{UID: uid, EthAddress: address, EthAddressVerification: txHash, AccountVerified: true}
 }
 
 //TODO
