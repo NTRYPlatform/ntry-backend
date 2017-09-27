@@ -9,6 +9,7 @@ import (
 
 	"github.com/NTRYPlatform/ntry-backend/config"
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 )
 
@@ -43,6 +44,7 @@ func Logging(handler *Handler) Adapter {
 	}
 }
 
+//TODO
 func Authorization(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +60,7 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 			if err := decode(r, u); err != nil {
 				// Set error data and jump to the last handler
 				// implemented by *Handler
-				handler.status = http.StatusInternalServerError
+				handler.status = http.StatusBadRequest
 				handler.data = err
 				handler.ServeHTTP(w, r)
 				return
@@ -129,13 +131,14 @@ func UpdateUserInfo(handler *Handler) Adapter {
 			if err := decode(r, u); err != nil {
 				// Set error data and jump to the last handler
 				// implemented by *Handler
-				handler.status = http.StatusInternalServerError
+				handler.status = http.StatusBadRequest
 				// w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 				handler.data = err
 				handler.ServeHTTP(w, r)
 				return
 			}
-
+			uid := context.Get(r, "uid")
+			(*u).UID = uid.(string)
 			if err := handler.db.UpdateUser(u); err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Failed to update user record!user: %v, err: %v", u, err))
@@ -145,7 +148,7 @@ func UpdateUserInfo(handler *Handler) Adapter {
 				return
 			}
 			// Follow the normal flow
-			handler.status = http.StatusCreated
+			handler.status = http.StatusOK
 			handler.data = true
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
@@ -163,6 +166,160 @@ func SearchUsers(handler *Handler) Adapter {
 			if err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Failed to fetch users with query: %v", v["q"]))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = users
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
+func GetUserContacts(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u := context.Get(r, "uid")
+			users, err := handler.db.FetchUserContacts(u.(string))
+			if err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Failed to fetch users with query: %v", u.(string)))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = users
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
+func AddContact(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			v := mux.Vars(r)
+			u := context.Get(r, "uid")
+
+			c := UserContact{PUid: u.(string), SUid: v["u"]}
+			if err := handler.db.Insert(&c, UserContacts); err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] User insertion to db error! user: %v, err: %v", u, err))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = true
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
+func CreateCarContract(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c := &CarContract{}
+			if err := decode(r, c); err != nil {
+				// Set error data and jump to the last handler
+				// implemented by *Handler
+				handler.status = http.StatusBadRequest
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			//TODO: check if the contract is valid
+			if err := handler.db.Insert(c, CarContractCollection); err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Car contract insertion to db error! user: %v, err: %v", c, err))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			cu := &CarContractUsers{CID: (*c).CID, Buyer: (*c).Buyer, Seller: (*c).Seller}
+			if err := handler.db.Insert(cu, CarContractUser); err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Car contract user insertion to db error! user: %v, err: %v", c, err))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			handler.logger.Info(fmt.Sprint("[handler ] Contract successfully saved to db!", (*c).CID))
+
+			handler.status = http.StatusCreated
+			handler.data = c.CID
+
+			h.ServeHTTP(w, r)
+
+		})
+	}
+}
+
+func UpdateCarContract(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c := &CarContract{}
+			if err := decode(r, c); err != nil {
+				// Set error data and jump to the last handler
+				// implemented by *Handler
+				handler.status = http.StatusBadRequest
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			if err := handler.db.UpdateContract(c); err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Failed to update car contract! contract: %v, err: %v", c, err))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = true
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
+func GetUserContracts(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u := context.Get(r, "uid")
+			users, err := handler.db.FetchUserContracts(u.(string))
+			if err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Failed to fetch user contracts with query: %v", u.(string)))
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)
@@ -226,19 +383,17 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 			//TODO: trigger eth network check
 
 			// Create a map to store user claims
-			claims := UserJWT{
-				*user,
-				jwt.StandardClaims{
-					IssuedAt: time.Now().Unix(),
-					// expires in an hour
-					ExpiresAt: time.Now().Add(time.Hour * 1).Unix(),
-					//TODO: change in production - should be configurable
-					Issuer: conf.GetServerAddress(),
-				},
+			claims := jwt.StandardClaims{
+				IssuedAt: time.Now().Unix(),
+				// expires in an hour
+				ExpiresAt: time.Now().Add(time.Hour * 1).Unix(),
+				//TODO: change in production - should be configurable
+				Issuer: conf.GetServerAddress(),
+
+				Id: (*user).UID,
 			}
 
 			// Create token with claims
-			// TODO: might want to use signing method ECDSA with pvt key
 			token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 
 			pvtKey, err := conf.GetPvtKey()
@@ -296,6 +451,7 @@ func ValidateTokenMiddleware(handler *Handler, conf *config.Config) Adapter {
 				token = strings.TrimPrefix(token, "Bearer ")
 			}
 
+			fmt.Printf("Token: %v", token)
 			// check if token is empty
 			if token == "" {
 
@@ -308,7 +464,7 @@ func ValidateTokenMiddleware(handler *Handler, conf *config.Config) Adapter {
 			}
 
 			// Parse token (TODO: Assuming pubkey will always be there)
-			key, _ := conf.GetPvtKey()
+			key, _ := conf.GetPubKey()
 			parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 					msg := fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
@@ -326,10 +482,13 @@ func ValidateTokenMiddleware(handler *Handler, conf *config.Config) Adapter {
 				return
 			}
 			if parsedToken.Valid {
+				//TODO: check for time (exp)
+				id := parsedToken.Claims.(jwt.MapClaims)["jti"]
+				context.Set(r, "uid", id)
 				handler.status = http.StatusOK
 				h.ServeHTTP(w, r)
 			} else {
-				handler.logger.Info(
+				handler.logger.Error(
 					fmt.Sprintf("[handler ] Invalid Token! %v", err))
 				handler.status = http.StatusForbidden
 				handler.data = "Not allowed"

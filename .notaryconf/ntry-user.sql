@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS `car_contract` (
   `down_payment` int NOT NULL,
   `remaining_payment` int NOT NULL,
   `remaining_payment_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this
+  `creation_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this
+  `last_updated_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this
 PRIMARY KEY (`cid`)
 ) DEFAULT CHARSET=utf8;
 
