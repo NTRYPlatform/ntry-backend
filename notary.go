@@ -149,7 +149,6 @@ func (n *Notary) EthWatcher() {
 	err := make(chan struct{})
 
 	go ws.WriteToRegisterChannel(out, err)
-
 	for {
 		select {
 		case ethLog := <-n.ethClient.Events:
@@ -159,8 +158,9 @@ func (n *Notary) EthWatcher() {
 			uid := data[64:96]
 			n.logger.Info(fmt.Sprintf("Address: %s, UID: %s, Tx Hash: %s", address, uid, ethLog.TxHash.String()))
 			u := VerifyUser(uid, address, ethLog.TxHash.String())
+
 			if err := n.db.UpdateUser(u); err != nil {
-				n.logger.Error(fmt.Sprintf("Couldn't update user email verification! %v", err.Error()))
+				n.logger.Error(fmt.Sprintf("Couldn't update user! %v", err.Error()))
 			} else {
 				out <- uid
 			}
