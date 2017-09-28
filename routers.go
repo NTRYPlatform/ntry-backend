@@ -19,8 +19,10 @@ func (n *Notary) muxServer() (router *mux.Router) {
 	router.Handle("/send-invitation", Adapt(handler, NotImplemented(handler), Logging(handler))).Methods("GET")
 
 	//TODO: specify .Headers()
-	// //TODO: technically should be restricted
 	router.Handle("/user/update", Adapt(handler, UpdateUserInfo(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")
+	router.Handle("/user/upload-avatar", Adapt(handler, UploadAvatar(handler, n.conf), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")
+	router.Handle("/user/get-avatar", Adapt(handler, DownloadAvatar(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).
+		Queries("u", "{u}").Methods("GET")
 	router.Handle("/user/search", Adapt(handler, SearchUsers(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).
 		Queries("q", "{q}").Methods("GET")
 	router.Handle("/user/get/{user}", Adapt(handler, GetUserContacts(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")

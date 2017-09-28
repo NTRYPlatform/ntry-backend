@@ -142,6 +142,7 @@ func (d *dbServer) LoginUserValidation(user *LoginUser) (*User, error) {
 	return &u, nil
 }
 
+//TODO: error
 func (d *dbServer) GetUserByUID(uid string) *User {
 	u := User{}
 	res := d.collection(UserCollection).Find("uid = ?", uid)

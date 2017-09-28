@@ -3,7 +3,10 @@ package notary
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -502,6 +505,96 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 			handler.status = http.StatusOK
 			handler.data = string(json)
 			h.ServeHTTP(w, r)
+
+		})
+	}
+}
+
+func UploadAvatar(handler *Handler, conf *config.Config) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "POST" {
+				r.ParseMultipartForm(32 << 20)
+				file, fheader, err := r.FormFile("uploadfile")
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error while parsing file: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = "Error while parsing file"
+					handler.ServeHTTP(w, r)
+					return
+				}
+				defer file.Close()
+				fmt.Fprintf(w, "%v", fheader.Header)
+				ext := filepath.Ext(fheader.Filename)
+				uid := context.Get(r, "uid").(string)
+				filename := conf.GetAvatarDir() + uid + ext
+				f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0666)
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error while trying to save file: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = "Error while trying to save file"
+					handler.ServeHTTP(w, r)
+					return
+				}
+				defer f.Close()
+				io.Copy(f, file)
+				u := User{UID: uid, Avatar: filename}
+				if err := handler.db.UpdateUser(&u); err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Failed to update user record!user: %v, err: %v", u, err))
+					handler.status = http.StatusInternalServerError
+					handler.data = err
+					handler.ServeHTTP(w, r)
+					return
+				}
+
+			} else {
+				handler.status = http.StatusMethodNotAllowed
+				handler.data = "Method not allowed!"
+				h.ServeHTTP(w, r)
+			}
+
+		})
+	}
+}
+
+func DownloadAvatar(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "GET" {
+				v := mux.Vars(r)
+				uid := v["uid"]
+				//TODO: check
+				u := handler.db.GetUserByUID(uid)
+				filename := u.Avatar
+				if len(filename) < 1 {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] No avatar filepath for user: %v", u.UID))
+					handler.status = http.StatusNoContent
+					handler.ServeHTTP(w, r)
+					return
+				}
+				f, err := os.OpenFile(u.Avatar, os.O_RDONLY, 0666)
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error while trying to read from file: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = "Error while trying to read from file"
+					handler.ServeHTTP(w, r)
+					return
+				}
+				defer f.Close()
+				io.Copy(w, f)
+				handler.status = http.StatusOK
+				handler.data = "attachment"
+
+			} else {
+				handler.status = http.StatusMethodNotAllowed
+				handler.data = "Method not allowed!"
+				h.ServeHTTP(w, r)
+			}
 
 		})
 	}

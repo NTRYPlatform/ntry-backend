@@ -24,6 +24,14 @@ type User struct {
 
 	LastName string `db:"last_name" json:"lastName,omitempty"`
 
+	Country string `db:"country" json:"country"`
+
+	City string `db:"city" json:"city"`
+
+	State string `db:"state" json:"state"`
+
+	Avatar string `db:"avatar" json:"-"`
+
 	Address string `db:"address" json:"address,omitempty"`
 
 	AccountVerified bool `db:"account_verified" json:"accountVerified"`
