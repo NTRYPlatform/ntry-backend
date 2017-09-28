@@ -3,6 +3,7 @@ package notary
 import (
 	"fmt"
 
+	"github.com/imdario/mergo"
 	log "go.uber.org/zap"
 	"upper.io/db.v3"
 	"upper.io/db.v3/lib/sqlbuilder"
@@ -11,10 +12,10 @@ import (
 
 // TODO:config
 const (
-	UserCollection   = `user`
-	UserContacts     = `user_to_user`
-	CarContract      = `car_contract`
-	CarContractUsers = `car_contract_user`
+	UserCollection        = `user`
+	UserContacts          = `user_to_user`
+	CarContractCollection = `car_contract`
+	CarContractUser       = `car_contract_user`
 )
 
 type dbServer struct {
@@ -32,7 +33,7 @@ func (d *dbServer) GetSession() sqlbuilder.Database {
 
 //TODO: might want to add a Ping() just to check whether db conn is alive
 //TODO: configure max open connections/idle connections, etc...
-
+//TODO: can't bemaking connections with every request
 func dbInit(script string, settings mysql.ConnectionURL, logger *log.Logger) (*dbServer, error) {
 	var d dbServer
 	var err error
@@ -50,7 +51,7 @@ func dbInit(script string, settings mysql.ConnectionURL, logger *log.Logger) (*d
 		return &d, nil
 	}
 
-	logger.Info(fmt.Sprint("Initializing database ...", UserCollection))
+	d.logger.Info(fmt.Sprint("Initializing database ..."))
 	// Collection does not exists, let's create it.
 	// Execute CREATE TABLE.
 	// TODO: This doesn't work with the new script... will have to figure this out
@@ -129,14 +130,18 @@ func (d *dbServer) collection(collection string) db.Collection {
 }
 
 //TODO: This could change everything... edit so it would only change certain fields
-// UpdateUser returns boolean whether user was updated or not
+// UpdateUser updates user and returns error if any
 func (d *dbServer) UpdateUser(user *User) (err error) {
-
-	res := d.collection(UserCollection).Find("uid = ?", user.UID)
-	defer res.Close()
-	err = res.Update(user)
-	if err != nil {
-		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
+	prev := d.GetUserByUID((*user).UID)
+	if prev != nil {
+		mergo.Merge(user, prev)
+		res := d.collection(UserCollection).Find("uid = ?", (*user).UID)
+		d.logger.Info(fmt.Sprintf("Query created: %v", res))
+		defer res.Close()
+		err = res.Update(user)
+		if err != nil {
+			d.logger.Error(fmt.Sprintf("Not cool! %v", err))
+		}
 	}
 	return
 }
@@ -164,21 +169,71 @@ func (d *dbServer) GetUserByUID(uid string) *User {
 	u := User{}
 	res := d.collection(UserCollection).Find("uid = ?", uid)
 	defer res.Close()
-	err := res.Update(&u)
+	err := res.One(&u)
 	if err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err.Error()))
 	}
 	return &u
 }
 
-// // GetUserValidationCode
-// func (d *dbServer) GetUserValidationCode(user *VerifyUserSignature) string {
-// 	u := User{}
-// 	res := d.collection(defaultUserCollection).Find("secondary_address = ?", (*user).PubKey)
-// 	defer res.Close()
-// 	err := res.Select("verification_code").One(&u)
-// 	if err != nil {
-// 		log.Println("Not cool!", err)
-// 	}
-// 	return u.VerificationCode
-// }
+//TODO: orderby/ limit?
+// SearchUserByName returns users by search string
+func (d *dbServer) SearchUserByName(name string) ([]User, error) {
+	var users []User
+	d.logger.Info(fmt.Sprintf("Search for user by name: %s", name))
+	c := fmt.Sprintf("%%%s%%", name)
+	cond :=
+		db.Or(
+			db.Cond{"first_name LIKE": c},
+			db.Cond{"last_name LIKE": c})
+	res := d.collection(UserCollection).Find(cond)
+	defer res.Close()
+	err := res.All(&users)
+	return users, err
+}
+
+func (d *dbServer) FetchUserContacts(uid string) ([]User, error) {
+	var users []User
+	res := d.sess.Select("*").From(UserCollection).
+		Where("uid in (select s_uid from user_to_user where p_uid = ?) ", uid)
+	// defer res.Close() TODO: can't figure this out
+	err := res.All(&users)
+	return users, err
+}
+
+func (d *dbServer) GetContractByCID(cid string) *CarContract {
+	c := CarContract{}
+	res := d.collection(UserCollection).Find("cid = ?", cid)
+	defer res.Close()
+	err := res.One(&c)
+	if err != nil {
+		d.logger.Error(fmt.Sprintf("Not cool! %v", err.Error()))
+	}
+	return &c
+}
+
+//TODO: This could change everything... edit so it would only change certain fields
+// UpdateUser updates user and returns error if any
+func (d *dbServer) UpdateContract(c *CarContract) (err error) {
+	prev := d.GetUserByUID((*c).CID)
+	if prev != nil {
+		mergo.Merge(c, prev)
+		res := d.collection(CarContractCollection).Find("cid = ?", (*c).CID)
+		d.logger.Info(fmt.Sprintf("Query created: %v", res))
+		defer res.Close()
+		err = res.Update(c)
+		if err != nil {
+			d.logger.Error(fmt.Sprintf("Not cool! %v", err))
+		}
+	}
+	return
+}
+
+func (d *dbServer) FetchUserContracts(uid string) ([]User, error) {
+	var users []User
+	res := d.sess.Select("*").From(CarContractCollection).
+		Where("uid in (select cid from car_contract_user where buyer= ? OR seller=?) ", uid, uid)
+	// defer res.Close() TODO: can't figure this out
+	err := res.All(&users)
+	return users, err
+}

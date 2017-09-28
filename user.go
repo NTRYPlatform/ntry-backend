@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	jwt "github.com/dgrijalva/jwt-go"
 )
 
 // User is the model for the `user` table
@@ -15,29 +13,30 @@ type User struct {
 
 	EthAddress string `db:"eth_address" json:"ethAddress"`
 
+	//TODO: Need to make sure pwd isn't ever serialized, maybe custom marshaller?
 	Password string `db:"password" json:"password" binding:"required"`
 
 	EmailAddress string `db:"email_address" json:"email" binding:"required"`
 
-	TelephoneNumber string `db:"telephone_number,omitempty" json:"phone"`
+	TelephoneNumber string `db:"telephone_number" json:"phone,omitempty"`
 
-	FirstName string `db:"first_name,omitempty" json:"firstName"`
+	FirstName string `db:"first_name" json:"firstName,omitempty"`
 
-	LastName string `db:"last_name,omitempty" json:"lastName"`
+	LastName string `db:"last_name" json:"lastName,omitempty"`
 
-	Address string `db:"address,omitempty" json:"address"`
+	Address string `db:"address" json:"address,omitempty"`
 
 	AccountVerified bool `db:"account_verified" json:"accountVerified"`
 
-	RegTime time.Time `db:"reg_time" json:"regTime"`
+	RegTime *time.Time `db:"reg_time" json:"regTime"`
 
-	EthAddressVerification string `db:"eth_verification,omitempty" json:"ethVerification"`
+	EthAddressVerification string `db:"eth_verification" json:"ethVerification,omitempty"`
 }
 
-// UserJWT the custom JWT token
-type UserJWT struct {
-	User User
-	jwt.StandardClaims
+// UserContact the custom JWT token
+type UserContact struct {
+	PUid string `db:"p_uid"`
+	SUid string `db:"s_uid"`
 }
 
 type LoginUser struct {
@@ -47,7 +46,7 @@ type LoginUser struct {
 
 // VerifyUser sets verification info
 func VerifyUser(uid, address, txHash string) *User {
-	return &User{EthAddress: address, EthAddressVerification: txHash, AccountVerified: true}
+	return &User{UID: uid, EthAddress: address, EthAddressVerification: txHash, AccountVerified: true}
 }
 
 //TODO
