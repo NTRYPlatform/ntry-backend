@@ -15,11 +15,11 @@ type ContractFields struct {
 
 // CarContract is the model for the `user` table
 type CarContract struct {
-	CID string `db:"cid" json:"cid"  binding:"required"`
+	CID int `db:"cid" json:"cid"  binding:"required"`
 
-	Buyer string `json:"buyer" required:"binding"`
+	Buyer string `db:"buyer" json:"buyer" required:"binding"`
 
-	Seller string `json:"seller" required:"binding"`
+	Seller string `db:"seller" json:"seller" required:"binding"`
 
 	Year int `db:"year" json:"year" binding:"required"`
 
@@ -47,15 +47,7 @@ type CarContract struct {
 
 	RemainingPaymentDate *time.Time `db:"remaining_payment_date" json:"remainingPaymentDate"`
 
-	LastUpdateDate *time.Time `db:"last_update_date" json:"lastUpdateDate"`
-}
-
-type CarContractUsers struct {
-	CID string `db:"cid" json:"cid"  binding:"required"`
-
-	Buyer string `db:"buyer" json:"buyer" required:"binding"`
-
-	Seller string `db:"seller" json:"seller" required:"binding"`
+	LastUpdateDate *time.Time `db:"last_updated_date" json:"lastUpdateDate"`
 }
 
 // GetContractFields
@@ -78,8 +70,12 @@ func GetContractFields() interface{} {
 
 		switch ft := val.(type) {
 		case int:
-			cf.Type = "number"
-			cf.Placeholder = strconv.Itoa(ft)
+			if ft != 0 {
+				cf.Type = "number"
+				cf.Placeholder = strconv.Itoa(ft)
+			} else {
+				reqd = false
+			}
 		case *time.Time:
 			if ft != nil {
 				cf.Type = "datetime"
@@ -100,7 +96,6 @@ func GetContractFields() interface{} {
 		if reqd {
 			f = append(f, cf)
 		}
-
 	}
 
 	return f

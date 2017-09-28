@@ -15,7 +15,6 @@ const (
 	UserCollection        = `user`
 	UserContacts          = `user_to_user`
 	CarContractCollection = `car_contract`
-	CarContractUser       = `car_contract_user`
 )
 
 type dbServer struct {
@@ -62,28 +61,6 @@ func dbInit(script string, settings mysql.ConnectionURL, logger *log.Logger) (*d
 	return &d, nil
 }
 
-/**
- * DB wrapper using context
- */
-// type dbwrapper struct {
-// 	h         http.Handler
-// 	dbSession *dbServer
-// }
-
-// func WithDB(s *dbServer, h http.Handler) http.Handler {
-// 	return &dbwrapper{dbSession: s, h: h}
-// }
-
-// func (dbw *dbwrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-// 	log.Println("In db wrapper, Server HTTP")
-// 	// // copy the Session
-// 	// dbcopy := dbw.dbSession
-// 	// defer dbcopy.Close()
-
-// 	// context.Set(r, "db", dbcopy)
-// 	dbw.h.ServeHTTP(w, r)
-// }
-
 // Returns true if collection already exist
 func (d *dbServer) CollectionExist(name string) bool {
 	return d.sess.Collection(name).Exists()
@@ -107,7 +84,7 @@ func (d *dbServer) Insert(anything interface{}, collection string) error {
 		return err
 	}
 
-	d.logger.Info(fmt.Sprint("User added successfully: ", anything))
+	d.logger.Info(fmt.Sprintf("%s added successfully!", collection))
 	return nil
 }
 
@@ -134,7 +111,7 @@ func (d *dbServer) collection(collection string) db.Collection {
 func (d *dbServer) UpdateUser(user *User) (err error) {
 	prev := d.GetUserByUID((*user).UID)
 	if prev != nil {
-		mergo.Merge(user, prev)
+		mergo.MergeWithOverwrite(prev, user)
 		res := d.collection(UserCollection).Find("uid = ?", (*user).UID)
 		d.logger.Info(fmt.Sprintf("Query created: %v", res))
 		defer res.Close()
@@ -201,9 +178,9 @@ func (d *dbServer) FetchUserContacts(uid string) ([]User, error) {
 	return users, err
 }
 
-func (d *dbServer) GetContractByCID(cid string) *CarContract {
+func (d *dbServer) GetContractByCID(cid int) *CarContract {
 	c := CarContract{}
-	res := d.collection(UserCollection).Find("cid = ?", cid)
+	res := d.collection(CarContractCollection).Find("cid = ?", cid)
 	defer res.Close()
 	err := res.One(&c)
 	if err != nil {
@@ -213,11 +190,11 @@ func (d *dbServer) GetContractByCID(cid string) *CarContract {
 }
 
 //TODO: This could change everything... edit so it would only change certain fields
-// UpdateUser updates user and returns error if any
+// UpdateContract updates the contract and returns error if any
 func (d *dbServer) UpdateContract(c *CarContract) (err error) {
-	prev := d.GetUserByUID((*c).CID)
+	prev := d.GetContractByCID((*c).CID)
 	if prev != nil {
-		mergo.Merge(c, prev)
+		mergo.MergeWithOverwrite(prev, c)
 		res := d.collection(CarContractCollection).Find("cid = ?", (*c).CID)
 		d.logger.Info(fmt.Sprintf("Query created: %v", res))
 		defer res.Close()
@@ -229,11 +206,11 @@ func (d *dbServer) UpdateContract(c *CarContract) (err error) {
 	return
 }
 
-func (d *dbServer) FetchUserContracts(uid string) ([]User, error) {
-	var users []User
+func (d *dbServer) FetchUserContracts(uid string) ([]CarContract, error) {
+	var c []CarContract
 	res := d.sess.Select("*").From(CarContractCollection).
-		Where("cid in (select cid from car_contract_user where buyer=? OR seller=?) ", uid, uid)
+		Where("cid in (select cid from car_contract where buyer=? OR seller=?) ", uid, uid)
 	// defer res.Close() TODO: can't figure this out
-	err := res.All(&users)
-	return users, err
+	err := res.All(&c)
+	return c, err
 }

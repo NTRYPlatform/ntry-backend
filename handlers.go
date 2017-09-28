@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -208,6 +209,33 @@ func GetUserContacts(handler *Handler) Adapter {
 	}
 }
 
+func GetUser(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			v := mux.Vars(r)
+			uid := v["user"]
+			users := handler.db.GetUserByUID(uid)
+			if users == nil {
+				msg := fmt.Sprintf("Failed to fetch users with query: %v", uid)
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] %v", msg))
+				handler.status = http.StatusInternalServerError
+				handler.data = msg
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = users
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
 func AddContact(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -240,28 +268,20 @@ func CreateCarContract(handler *Handler) Adapter {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c := &CarContract{}
 			if err := decode(r, c); err != nil {
-				// Set error data and jump to the last handler
-				// implemented by *Handler
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Car contract couldn't be parsed! user: %v, err: %v", c, err))
 				handler.status = http.StatusBadRequest
-				handler.data = err
+				handler.data = "Car contract couldn't be parsed!"
 				handler.ServeHTTP(w, r)
 				return
 			}
+
+			(*c).CID = int(time.Now().Unix())
 
 			//TODO: check if the contract is valid
 			if err := handler.db.Insert(c, CarContractCollection); err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Car contract insertion to db error! user: %v, err: %v", c, err))
-				handler.status = http.StatusInternalServerError
-				handler.data = err
-				handler.ServeHTTP(w, r)
-				return
-			}
-
-			cu := &CarContractUsers{CID: (*c).CID, Buyer: (*c).Buyer, Seller: (*c).Seller}
-			if err := handler.db.Insert(cu, CarContractUser); err != nil {
-				handler.logger.Error(
-					fmt.Sprintf("[handler ] Car contract user insertion to db error! user: %v, err: %v", c, err))
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)
@@ -329,6 +349,42 @@ func GetUserContracts(handler *Handler) Adapter {
 			// Follow the normal flow
 			handler.status = http.StatusOK
 			handler.data = users
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
+func GetContract(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			v := mux.Vars(r)
+			cid, err := strconv.Atoi(v["cid"])
+			if err != nil {
+				msg := fmt.Sprintf("Failed to fetch contract with query: %v", cid)
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] %v", msg))
+				handler.status = http.StatusBadRequest
+				handler.data = msg
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			c := handler.db.GetContractByCID(cid)
+			if c == nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Failed to fetch user contracts with query: %v", cid))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = c
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
 			return
@@ -467,7 +523,6 @@ func ValidateTokenMiddleware(handler *Handler, conf *config.Config) Adapter {
 				token = strings.TrimPrefix(token, "Bearer ")
 			}
 
-			fmt.Printf("Token: %v", token)
 			// check if token is empty
 			if token == "" {
 
@@ -493,12 +548,11 @@ func ValidateTokenMiddleware(handler *Handler, conf *config.Config) Adapter {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Token couldn't be parsed! %v", err))
 				handler.status = http.StatusForbidden
-				handler.data = "Token couldn't be parsed!"
+				handler.data = err.Error()
 				handler.ServeHTTP(w, r)
 				return
 			}
 			if parsedToken.Valid {
-				//TODO: check for time (exp)
 				id := parsedToken.Claims.(jwt.MapClaims)["jti"]
 				context.Set(r, "uid", id)
 				handler.status = http.StatusOK
