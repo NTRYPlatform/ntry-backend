@@ -232,7 +232,7 @@ func (d *dbServer) UpdateContract(c *CarContract) (err error) {
 func (d *dbServer) FetchUserContracts(uid string) ([]User, error) {
 	var users []User
 	res := d.sess.Select("*").From(CarContractCollection).
-		Where("uid in (select cid from car_contract_user where buyer= ? OR seller=?) ", uid, uid)
+		Where("cid in (select cid from car_contract_user where buyer=? OR seller=?) ", uid, uid)
 	// defer res.Close() TODO: can't figure this out
 	err := res.All(&users)
 	return users, err

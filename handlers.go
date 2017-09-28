@@ -337,6 +337,22 @@ func GetUserContracts(handler *Handler) Adapter {
 	}
 }
 
+func GetContractFieldsList(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			f := GetContractFields()
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = f
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
 func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

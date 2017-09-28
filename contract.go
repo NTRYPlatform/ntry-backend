@@ -3,8 +3,15 @@ package notary
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"time"
 )
+
+type ContractFields struct {
+	Name        string      `json:"name"`
+	Type        string      `json:"type"`
+	Placeholder interface{} `json:"default"`
+}
 
 // CarContract is the model for the `user` table
 type CarContract struct {
@@ -14,7 +21,7 @@ type CarContract struct {
 
 	Seller string `json:"seller" required:"binding"`
 
-	Year int8 `db:"year" json:"year" binding:"required"`
+	Year int `db:"year" json:"year" binding:"required"`
 
 	Make string `db:"make" json:"make" binding:"required"`
 
@@ -51,14 +58,50 @@ type CarContractUsers struct {
 	Seller string `db:"seller" json:"seller" required:"binding"`
 }
 
-func (c *CarContract) GetContractFields() interface{} {
+// GetContractFields
+func GetContractFields() interface{} {
+	t := time.Now().UTC()
+	c := CarContract{Buyer: "Buyer's ID", Seller: "Seller's ID", Year: 2016,
+		Make: "Tesla", Model: "Model X", VIN: "1HGBH41JXMN109186", Type: "Sedan",
+		Color: "Gun Metal", EngineNo: "17100H0203611", Mileage: 23420, TotalPrice: 65450,
+		DownPayment: 5000, RemainingPayment: 60450, RemainingPaymentDate: &t}
 
-	v := reflect.ValueOf(c)
-	values := make([]interface{}, v.NumField())
+	v := reflect.TypeOf(c)
+	cv := reflect.ValueOf(c)
+	var f []ContractFields
+
 	for i := 0; i < v.NumField(); i++ {
-		values[i] = v.Field(i).Interface()
+		reqd := true
+		fi := v.Field(i)
+		val := cv.Field(i).Interface()
+		cf := ContractFields{Name: fi.Name}
+
+		switch ft := val.(type) {
+		case int:
+			cf.Type = "number"
+			cf.Placeholder = strconv.Itoa(ft)
+		case *time.Time:
+			if ft != nil {
+				cf.Type = "datetime"
+				cf.Placeholder = ft.String()
+			} else {
+				reqd = false
+			}
+		case string:
+			if len(ft) > 1 {
+				cf.Type = "string"
+				cf.Placeholder = string(ft)
+			} else {
+				reqd = false
+			}
+		default:
+			fmt.Println("I don't know, ask stackoverflow.")
+		}
+		if reqd {
+			f = append(f, cf)
+		}
+
 	}
 
-	fmt.Println(values)
-	return values
+	return f
 }
