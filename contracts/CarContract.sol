@@ -1,6 +1,6 @@
 pragma solidity ^0.4.16;
 
-import './Pausable.sol';
+import './Ownable.sol';
 import './ReentrancyGuard.sol';
 
 contract NotaryPlatformToken{
@@ -16,13 +16,9 @@ contract CarContracts is Ownable, ReentrancyGuard{
         bytes32 hash;
     }
 
-    bytes[] private index;
+    uint256[] private index;
 
-    mapping (bytes => Deal) private carDeals;
-    
-    // Only for testnet
-    mapping (address => bytes) public seller;
-    mapping (address => bytes) public buyer;
+    mapping (uint256 => Deal) private carDeals;
     
     uint256 private contractFee;
     uint256 private feeSum;
@@ -30,7 +26,7 @@ contract CarContracts is Ownable, ReentrancyGuard{
     address private notaryApp;
     NotaryPlatformToken private notaryToken;
     
-    event LogDeal(address indexed sellerAddress, address indexed buyerAddress, bytes dealID, uint256 dealfee, bytes32 dealHash);
+    event LogDeal(address indexed sellerAddress, address indexed buyerAddress, uint256 dealID, uint256 dealfee, bytes32 dealHash);
     event AppAccountUpdated(address indexed oldAddress,address indexed newAddress);
     event TokenAddressUpdated(address indexed oldAddress,address indexed newAddress);
     event ContractFeeUpdated(uint256 indexed oldValue,uint256 indexed newValue);
@@ -88,14 +84,14 @@ contract CarContracts is Ownable, ReentrancyGuard{
      * @param _buyer  Car buyer public address
      * @param _hash Hash of contract attributes
      * @notice Arguments sequence for hash function
-     * bytes cid, address _seller, address _buyer,
+     * uint256 cid, address _seller, address _buyer,
      * uint256 year,bytes make, bytes model, bytes vin,
      * bytes carType, bytes color, bytes engine_no,
      * uint8 mileage, uint256 totalPrice,
      * uint256 downPayment, uint256 remainingPayment,
      * uint256 remainingPaymentDate
      */
-    function carDeal(bytes cid, address _seller, address _buyer,bytes32 _hash) nonReentrant() onlyApp() returns (bool){
+    function carDeal(uint256 cid, address _seller, address _buyer,bytes32 _hash) nonReentrant() onlyApp() returns (bool){
         require(carDeals[cid].seller == 0x00);
     
         if(!notaryToken.transferFrom(_buyer, owner,contractFee)){
@@ -111,20 +107,18 @@ contract CarContracts is Ownable, ReentrancyGuard{
         carDeals[cid].hash = _hash;
         
         index.push(cid);
-        seller[_seller] = cid;
-        seller[_buyer] = cid;
         
         LogDeal(_seller,_buyer,cid,contractFee,_hash);
         
         return true;
     }
     
-    function getDeal(bytes cid) external constant returns(address,address,bytes32){
+    function getDeal(uint256 cid) external constant returns(address,address,bytes32){
         require(carDeals[cid].seller != 0x00);
         return(carDeals[cid].seller,carDeals[cid].buyer,carDeals[cid].hash);
     }
     
-    function getID(uint256 _index) external constant returns(bytes){
+    function getID(uint256 _index) external constant returns(uint256){
         return(index[_index]);
     }
     
