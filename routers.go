@@ -25,7 +25,7 @@ func (n *Notary) muxServer() (router *mux.Router) {
 		Queries("u", "{u}").Methods("GET")
 	router.Handle("/user/search", Adapt(handler, SearchUsers(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).
 		Queries("q", "{q}").Methods("GET")
-	router.Handle("/user/get/{user}", Adapt(handler, GetUserContacts(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
+	router.Handle("/user/get/{user}", Adapt(handler, GetUser(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
 
 	router.Handle("/contacts/add", Adapt(handler, AddContact(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).
 		Queries("u", "{u}").Methods("GET")
