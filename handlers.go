@@ -539,7 +539,15 @@ func UploadAvatar(handler *Handler, conf *config.Config) Adapter {
 					return
 				}
 				defer f.Close()
-				io.Copy(f, file)
+				_, err = io.Copy(f, file)
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error while writing avatar to file: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = "Error while trying to store file"
+					handler.ServeHTTP(w, r)
+					return
+				}
 				u := User{UID: uid, Avatar: filename}
 				if err := handler.db.UpdateUser(&u); err != nil {
 					handler.logger.Error(
@@ -586,7 +594,15 @@ func DownloadAvatar(handler *Handler) Adapter {
 					return
 				}
 				defer f.Close()
-				io.Copy(w, f)
+				_, err = io.Copy(w, f)
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error while writing avatar response: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = "Error while writing response"
+					handler.ServeHTTP(w, r)
+					return
+				}
 				handler.status = http.StatusOK
 				handler.data = "attachment"
 
