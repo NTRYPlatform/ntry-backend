@@ -127,18 +127,25 @@ func (d *dbServer) UpdateUser(user *User) (err error) {
 func (d *dbServer) LoginUserValidation(user *LoginUser) (*User, error) {
 
 	u := User{}
-	res := d.collection(UserCollection).Find("password = ? AND email_address = ?", (*user).Password, (*user).EmailAddress)
-	d.logger.Info(fmt.Sprintf("Query created: %v", res))
+	res := d.collection(UserCollection).Find("email_address = ?", user.EmailAddress)
+	d.logger.Debug(fmt.Sprintf("Query created: %v", res))
 	defer res.Close()
 	err := res.One(&u)
 	if err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
 		return nil, err
 	}
-	d.logger.Info(fmt.Sprintf("User: %v", u))
+	d.logger.Info(fmt.Sprintf("User found: %v", u.UID))
+	// check if account is verified, and then check if password is valid
 	if !u.AccountVerified {
+		d.logger.Info(fmt.Sprintf("User '%s' is not verified!", user.EmailAddress))
 		return nil, nil
 	}
+	if !CheckPasswordHash(user.Password, u.Password) {
+		d.logger.Info(fmt.Sprintf("User '%s' gave bad password", user.EmailAddress))
+		return nil, nil
+	}
+
 	return &u, nil
 }
 

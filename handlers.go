@@ -96,6 +96,16 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 				cTime := time.Now().UTC()
 				u.RegTime = &cTime
 				u.AccountVerified = false
+				fmt.Printf("Password: %s", u.Password)
+				if u.Password, err = HashPassword(u.Password); err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Couldn't hash password! user: %v, err: %v", u, err))
+					handler.status = http.StatusInternalServerError
+					handler.data = err
+					handler.ServeHTTP(w, r)
+					return
+				}
+
 				if err := handler.db.Insert(u, UserCollection); err != nil {
 					handler.logger.Error(
 						fmt.Sprintf("[handler ] User insertion to db error! user: %v, err: %v", u, err))
@@ -128,6 +138,7 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 	}
 }
 
+//TODO: shouldn't update everything/ handle the password update cond
 func UpdateUserInfo(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
