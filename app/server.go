@@ -7,7 +7,8 @@ import (
 	"sync"
 
 	notary "github.com/NTRYPlatform/ntry-backend"
-	"github.com/docopt/docopt-go"
+
+	docopt "github.com/docopt/docopt-go"
 )
 
 /**

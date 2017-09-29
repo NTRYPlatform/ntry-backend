@@ -3,7 +3,11 @@ package notary
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -208,6 +212,33 @@ func GetUserContacts(handler *Handler) Adapter {
 	}
 }
 
+func GetUser(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			v := mux.Vars(r)
+			uid := v["user"]
+			users := handler.db.GetUserByUID(uid)
+			if users == nil {
+				msg := fmt.Sprintf("Failed to fetch users with query: %v", uid)
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] %v", msg))
+				handler.status = http.StatusInternalServerError
+				handler.data = msg
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = users
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
 func AddContact(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -240,28 +271,20 @@ func CreateCarContract(handler *Handler) Adapter {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c := &CarContract{}
 			if err := decode(r, c); err != nil {
-				// Set error data and jump to the last handler
-				// implemented by *Handler
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Car contract couldn't be parsed! user: %v, err: %v", c, err))
 				handler.status = http.StatusBadRequest
-				handler.data = err
+				handler.data = "Car contract couldn't be parsed!"
 				handler.ServeHTTP(w, r)
 				return
 			}
+
+			(*c).CID = int(time.Now().Unix())
 
 			//TODO: check if the contract is valid
 			if err := handler.db.Insert(c, CarContractCollection); err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Car contract insertion to db error! user: %v, err: %v", c, err))
-				handler.status = http.StatusInternalServerError
-				handler.data = err
-				handler.ServeHTTP(w, r)
-				return
-			}
-
-			cu := &CarContractUsers{CID: (*c).CID, Buyer: (*c).Buyer, Seller: (*c).Seller}
-			if err := handler.db.Insert(cu, CarContractUser); err != nil {
-				handler.logger.Error(
-					fmt.Sprintf("[handler ] Car contract user insertion to db error! user: %v, err: %v", c, err))
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)
@@ -329,6 +352,58 @@ func GetUserContracts(handler *Handler) Adapter {
 			// Follow the normal flow
 			handler.status = http.StatusOK
 			handler.data = users
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
+func GetContract(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			v := mux.Vars(r)
+			cid, err := strconv.Atoi(v["cid"])
+			if err != nil {
+				msg := fmt.Sprintf("Failed to fetch contract with query: %v", cid)
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] %v", msg))
+				handler.status = http.StatusBadRequest
+				handler.data = msg
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			c := handler.db.GetContractByCID(cid)
+			if c == nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Failed to fetch user contracts with query: %v", cid))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = c
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
+func GetContractFieldsList(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			f := GetContractFields()
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = f
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
 			return
@@ -435,6 +510,112 @@ func LoginHandler(handler *Handler, conf *config.Config) Adapter {
 	}
 }
 
+func UploadAvatar(handler *Handler, conf *config.Config) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "POST" {
+				r.ParseMultipartForm(32 << 20)
+				file, fheader, err := r.FormFile("uploadfile")
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error while parsing file: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = "Error while parsing file"
+					handler.ServeHTTP(w, r)
+					return
+				}
+				defer file.Close()
+				fmt.Fprintf(w, "%v", fheader.Header)
+				ext := filepath.Ext(fheader.Filename)
+				uid := context.Get(r, "uid").(string)
+				filename := conf.GetAvatarDir() + uid + ext
+				f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0666)
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error while trying to save file: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = "Error while trying to save file"
+					handler.ServeHTTP(w, r)
+					return
+				}
+				defer f.Close()
+				_, err = io.Copy(f, file)
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error while writing avatar to file: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = "Error while trying to store file"
+					handler.ServeHTTP(w, r)
+					return
+				}
+				u := User{UID: uid, Avatar: filename}
+				if err := handler.db.UpdateUser(&u); err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Failed to update user record!user: %v, err: %v", u, err))
+					handler.status = http.StatusInternalServerError
+					handler.data = err
+					handler.ServeHTTP(w, r)
+					return
+				}
+
+			} else {
+				handler.status = http.StatusMethodNotAllowed
+				handler.data = "Method not allowed!"
+				h.ServeHTTP(w, r)
+			}
+
+		})
+	}
+}
+
+func DownloadAvatar(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "GET" {
+				v := mux.Vars(r)
+				uid := v["uid"]
+				//TODO: check
+				u := handler.db.GetUserByUID(uid)
+				filename := u.Avatar
+				if len(filename) < 1 {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] No avatar filepath for user: %v", u.UID))
+					handler.status = http.StatusNoContent
+					handler.ServeHTTP(w, r)
+					return
+				}
+				f, err := os.OpenFile(u.Avatar, os.O_RDONLY, 0666)
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error while trying to read from file: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = "Error while trying to read from file"
+					handler.ServeHTTP(w, r)
+					return
+				}
+				defer f.Close()
+				_, err = io.Copy(w, f)
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error while writing avatar response: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = "Error while writing response"
+					handler.ServeHTTP(w, r)
+					return
+				}
+				handler.status = http.StatusOK
+				handler.data = "attachment"
+
+			} else {
+				handler.status = http.StatusMethodNotAllowed
+				handler.data = "Method not allowed!"
+				h.ServeHTTP(w, r)
+			}
+
+		})
+	}
+}
+
 /* --------------- Middlewares ---------------- */
 
 //ValidateTokenMiddleware
@@ -451,7 +632,6 @@ func ValidateTokenMiddleware(handler *Handler, conf *config.Config) Adapter {
 				token = strings.TrimPrefix(token, "Bearer ")
 			}
 
-			fmt.Printf("Token: %v", token)
 			// check if token is empty
 			if token == "" {
 
@@ -477,12 +657,11 @@ func ValidateTokenMiddleware(handler *Handler, conf *config.Config) Adapter {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Token couldn't be parsed! %v", err))
 				handler.status = http.StatusForbidden
-				handler.data = "Token couldn't be parsed!"
+				handler.data = err.Error()
 				handler.ServeHTTP(w, r)
 				return
 			}
 			if parsedToken.Valid {
-				//TODO: check for time (exp)
 				id := parsedToken.Claims.(jwt.MapClaims)["jti"]
 				context.Set(r, "uid", id)
 				handler.status = http.StatusOK

@@ -26,6 +26,7 @@ type Config struct {
 	EthDataDir     string `yaml:"ethDataDir" required:"true"`
 	EthPvtKeyFile  string `yaml:"ethPvtKeyFile" required:"true"`
 	EthPassphrase  string `yaml:"ethPassphrase" required:"true"`
+	AvatarDir      string `yaml:"avatarDir" required:true`
 	Db             Database
 }
 
@@ -145,6 +146,11 @@ func (c *Config) GetEthKey() string {
 
 func (c *Config) GetEthPassphrase() string {
 	return c.EthPassphrase
+}
+
+//TODO: check pattern.. should have a trailing /
+func (c *Config) GetAvatarDir() string {
+	return c.AvatarDir
 }
 
 func (c *Config) SetMapperContractAddress(address string, path string) {
