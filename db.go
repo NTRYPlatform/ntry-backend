@@ -110,12 +110,17 @@ func (d *dbServer) collection(collection string) db.Collection {
 // UpdateUser updates user and returns error if any
 func (d *dbServer) UpdateUser(user *User) (err error) {
 	prev := d.GetUserByUID((*user).UID)
+	//TODO: technically else should throw error
 	if prev != nil {
-		mergo.MergeWithOverwrite(prev, user)
+		if err := mergo.MergeWithOverwrite(prev, user); err != nil {
+			d.logger.Error(fmt.Sprintf("can't merge structs: \nPrev:%v\nNew:%v\n", prev, user))
+			return err
+		}
+
 		res := d.collection(UserCollection).Find("uid = ?", (*user).UID)
 		d.logger.Info(fmt.Sprintf("Query created: %v", res))
 		defer res.Close()
-		err = res.Update(user)
+		err = res.Update(prev)
 		if err != nil {
 			d.logger.Error(fmt.Sprintf("Not cool! %v", err))
 		}
@@ -201,12 +206,17 @@ func (d *dbServer) GetContractByCID(cid int) *CarContract {
 // UpdateContract updates the contract and returns error if any
 func (d *dbServer) UpdateContract(c *CarContract) (err error) {
 	prev := d.GetContractByCID((*c).CID)
+	//TODO: technically else should throw error
 	if prev != nil {
-		mergo.MergeWithOverwrite(prev, c)
-		res := d.collection(CarContractCollection).Find("cid = ?", (*c).CID)
+		if err := mergo.MergeWithOverwrite(prev, c); err != nil {
+			d.logger.Error(fmt.Sprintf("can't merge structs: \nPrev:%v\nNew:%v\n", prev, c))
+			return err
+		}
+
+		res := d.collection(CarContractCollection).Find("cid = ?", c.CID)
 		d.logger.Info(fmt.Sprintf("Query created: %v", res))
 		defer res.Close()
-		err = res.Update(c)
+		err = res.Update(prev)
 		if err != nil {
 			d.logger.Error(fmt.Sprintf("Not cool! %v", err))
 		}

@@ -86,7 +86,7 @@ func (u *User) OK() error {
 		return &ErrRequired{arg: "Password"}
 	}
 	if len(u.UID) == 0 {
-		return &ErrRequired{arg: "Password"}
+		return &ErrRequired{arg: "UID"}
 	}
 	// non-mandatory values
 	if !(len(u.EthAddress) == 0) {
