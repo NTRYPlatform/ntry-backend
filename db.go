@@ -3,6 +3,7 @@ package notary
 import (
 	"fmt"
 
+	"github.com/NTRYPlatform/ntry-backend/eth"
 	"github.com/imdario/mergo"
 	log "go.uber.org/zap"
 	"upper.io/db.v3"
@@ -191,8 +192,8 @@ func (d *dbServer) FetchUserContacts(uid string) ([]User, error) {
 	return users, err
 }
 
-func (d *dbServer) GetContractByCID(cid int) *CarContract {
-	c := CarContract{}
+func (d *dbServer) GetContractByCID(cid int64) *eth.CarContract {
+	c := eth.CarContract{}
 	res := d.collection(CarContractCollection).Find("cid = ?", cid)
 	defer res.Close()
 	err := res.One(&c)
@@ -204,7 +205,7 @@ func (d *dbServer) GetContractByCID(cid int) *CarContract {
 
 //TODO: This could change everything... edit so it would only change certain fields
 // UpdateContract updates the contract and returns error if any
-func (d *dbServer) UpdateContract(c *CarContract) (err error) {
+func (d *dbServer) UpdateContract(c *eth.CarContract) (err error) {
 	prev := d.GetContractByCID((*c).CID)
 	//TODO: technically else should throw error
 	if prev != nil {
@@ -224,11 +225,29 @@ func (d *dbServer) UpdateContract(c *CarContract) (err error) {
 	return
 }
 
-func (d *dbServer) FetchUserContracts(uid string) ([]CarContract, error) {
-	var c []CarContract
+func (d *dbServer) FetchUserContracts(uid string) ([]eth.CarContract, error) {
+	var c []eth.CarContract
 	res := d.sess.Select("*").From(CarContractCollection).
 		Where("cid in (select cid from car_contract where buyer=? OR seller=?) ", uid, uid)
 	// defer res.Close() TODO: can't figure this out
 	err := res.All(&c)
 	return c, err
+}
+
+//TODO: SO NOT efficient
+func (d *dbServer) GetContractParticipants(buyerID, sellerID string) (string, string, error) {
+	buyer := &User{}
+	b := d.sess.Select("eth_address").From(UserCollection).
+		Where("uid=?", buyerID)
+	if err := b.One(buyer); err != nil {
+		return "", "", err
+	}
+	seller := &User{}
+	s := d.sess.Select("eth_address").From(UserCollection).
+		Where("uid=?", sellerID)
+	if err := s.One(seller); err != nil {
+		return "", "", err
+	}
+	// defer res.Close() TODO: can't figure this out
+	return buyer.EthAddress, seller.EthAddress, nil
 }

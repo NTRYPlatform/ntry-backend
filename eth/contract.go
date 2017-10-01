@@ -1,11 +1,18 @@
-package notary
+package eth
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strconv"
 	"time"
 )
+
+type ContractNotification struct {
+	Contract    CarContract
+	NotifyParty string
+}
 
 type ContractFields struct {
 	Name        string      `json:"name"`
@@ -15,7 +22,7 @@ type ContractFields struct {
 
 // CarContract is the model for the `user` table
 type CarContract struct {
-	CID int `db:"cid" json:"cid"  binding:"required"`
+	CID int64 `db:"cid" json:"cid"  binding:"required"`
 
 	Buyer string `db:"buyer" json:"buyer" required:"binding"`
 
@@ -99,4 +106,45 @@ func GetContractFields() interface{} {
 	}
 
 	return f
+}
+
+func (c *CarContract) String() string {
+	return fmt.Sprintf(`
+		CID: %v
+		Seller: %v
+		Buyer: %v
+		Year: %v
+		Make: %v
+		Model: %v
+		VIN: %v
+		Type: %v 
+		Color: %v
+		EngineNo: %v
+		Mileage: %v
+		TotalPrice: %v
+		DownPayment: %v
+		RemainingPayment: %v
+		RemainingPaymentDate: %v
+		`,
+		c.CID,
+		c.Seller,
+		c.Buyer,
+		c.Year,
+		c.Make,
+		c.Model,
+		c.VIN,
+		c.Type,
+		c.Color,
+		c.EngineNo,
+		c.Mileage,
+		c.TotalPrice,
+		c.DownPayment,
+		c.RemainingPayment,
+		c.RemainingPaymentDate)
+}
+
+func (c *CarContract) Hash() string {
+	h := sha256.New()
+	h.Write([]byte(c.String()))
+	return hex.EncodeToString(h.Sum(nil))
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/NTRYPlatform/ntry-backend/config"
+	"github.com/NTRYPlatform/ntry-backend/eth"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
@@ -250,6 +251,43 @@ func GetUser(handler *Handler) Adapter {
 	}
 }
 
+func GetUserBalance(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			uid := context.Get(r, "uid")
+			//TODO: find a more efficient method.. maybe add the eth address in JWT?
+			user := handler.db.GetUserByUID(uid.(string))
+			if user == nil {
+				msg := fmt.Sprintf("Failed to fetch users with query: %v", uid)
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] %v", msg))
+				handler.status = http.StatusInternalServerError
+				handler.data = msg
+				handler.ServeHTTP(w, r)
+				return
+			}
+			bal, err := handler.ec.NotaryBalance(user.EthAddress)
+			if err != nil {
+				msg := fmt.Sprintf("Failed to get notary balance: %v", uid)
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] %v", msg))
+				handler.status = http.StatusInternalServerError
+				handler.data = msg
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = *bal
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
 func AddContact(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -277,10 +315,10 @@ func AddContact(handler *Handler) Adapter {
 	}
 }
 
-func CreateCarContract(handler *Handler) Adapter {
+func CreateCarContract(handler *Handler, contracts chan interface{}) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			c := &CarContract{}
+			c := &eth.CarContract{}
 			if err := decode(r, c); err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Car contract couldn't be parsed! user: %v, err: %v", c, err))
@@ -290,8 +328,7 @@ func CreateCarContract(handler *Handler) Adapter {
 				return
 			}
 
-			(*c).CID = int(time.Now().Unix())
-
+			c.CID = int64(time.Now().Unix())
 			//TODO: check if the contract is valid
 			if err := handler.db.Insert(c, CarContractCollection); err != nil {
 				handler.logger.Error(
@@ -304,9 +341,48 @@ func CreateCarContract(handler *Handler) Adapter {
 
 			handler.logger.Info(fmt.Sprint("[handler ] Contract successfully saved to db!", (*c).CID))
 
+			uid := context.Get(r, "uid")
+			cn := eth.ContractNotification{Contract: *c}
+			if cn.NotifyParty = c.Seller; c.Seller == uid {
+				cn.NotifyParty = c.Buyer
+			}
 			handler.status = http.StatusCreated
 			handler.data = c.CID
+			contracts <- cn
+			h.ServeHTTP(w, r)
 
+		})
+	}
+}
+
+func SubmitCarContract(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			v := mux.Vars(r)
+			cid := v["cid"]
+			//TODO: handle
+			i, err := strconv.ParseInt(cid, 10, 64)
+			c := handler.db.GetContractByCID(i)
+			buyer, seller, err := handler.db.GetContractParticipants(c.Buyer, c.Seller)
+			if err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Can't get contract participants db error! cid: %v,", cid))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+			err = handler.ec.CarDeal(c.Hash(), buyer, seller, i)
+			if err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Can't write contract to the blockchain! cid: %v,", cid))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			handler.status = http.StatusOK
 			h.ServeHTTP(w, r)
 
 		})
@@ -316,7 +392,7 @@ func CreateCarContract(handler *Handler) Adapter {
 func UpdateCarContract(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			c := &CarContract{}
+			c := &eth.CarContract{}
 			if err := decode(r, c); err != nil {
 				// Set error data and jump to the last handler
 				// implemented by *Handler
@@ -375,9 +451,9 @@ func GetContract(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			v := mux.Vars(r)
-			cid, err := strconv.Atoi(v["cid"])
+			cid, err := strconv.ParseInt(v["cid"], 10, 64)
 			if err != nil {
-				msg := fmt.Sprintf("Failed to fetch contract with query: %v", cid)
+				msg := fmt.Sprintf("Failed to get cid: %v", cid)
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] %v", msg))
 				handler.status = http.StatusBadRequest
@@ -410,7 +486,7 @@ func GetContract(handler *Handler) Adapter {
 func GetContractFieldsList(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			f := GetContractFields()
+			f := eth.GetContractFields()
 
 			// Follow the normal flow
 			handler.status = http.StatusOK
