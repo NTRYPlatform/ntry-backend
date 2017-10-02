@@ -9,7 +9,7 @@ mapperContract: 0x193D2aeDB7d539410Bff2E40b8814D5b54067406
 tokenContract: 0x270581df294b275e1debc27c667d5c776d62361c
 carContract: 0xd1f2ac7867507fc04dc7d9d43bc924279e40215d
 ethDataDir: /tmp/ethereum_dev_mode
-ethPvtKeyFile: UTC--2017-09-29T19-43-30.634157690Z--0999091294ce89835a13152d46ce338debea9ddb
+ethPvtKeyFile: UTC--2017-10-02T16-55-27.956017254Z--ef400d17a79b40ac017263ba380b8e8a35deb18e
 ethPassphrase: thisone
 avatarDir: /tmp/
 db:

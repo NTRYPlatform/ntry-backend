@@ -329,6 +329,7 @@ func CreateCarContract(handler *Handler, contracts chan interface{}) Adapter {
 			}
 
 			c.CID = int64(time.Now().Unix())
+			c.Approved = false // just in case
 			//TODO: check if the contract is valid
 			if err := handler.db.Insert(c, CarContractCollection); err != nil {
 				handler.logger.Error(
@@ -346,10 +347,13 @@ func CreateCarContract(handler *Handler, contracts chan interface{}) Adapter {
 			if cn.NotifyParty = c.Seller; c.Seller == uid {
 				cn.NotifyParty = c.Buyer
 			}
+
 			handler.status = http.StatusCreated
 			handler.data = c.CID
 			contracts <- cn
+
 			h.ServeHTTP(w, r)
+			return
 
 		})
 	}
@@ -376,6 +380,18 @@ func SubmitCarContract(handler *Handler) Adapter {
 			if err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Can't write contract to the blockchain! cid: %v,", cid))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			//update contract with hash and approved
+			c.ContentHash = c.Hash()
+			c.Approved = true
+			if err := handler.db.UpdateContract(c); err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Failed to update car contract! contract: %v, err: %v", c, err))
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)

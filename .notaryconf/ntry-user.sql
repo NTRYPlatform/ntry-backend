@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS `user` (
   `uid` varchar(32) NOT NULL, # this is the user id
-  `eth_address` varchar(41) DEFAULT "",
+  `eth_address` varchar(42) DEFAULT "",
   `first_name` varchar(50) DEFAULT "",
   `last_name` varchar(50) DEFAULT "",
   `email_address` varchar(100) NOT NULL,
@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS `car_contract` (
   `total_price` int NOT NULL,
   `down_payment` int NOT NULL,
   `remaining_payment` int NOT NULL,
+  `content_hash` varchar(66) DEFAULT "",
+  `approved` bool DEFAULT false,
   `remaining_payment_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this
   `creation_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this
   `last_updated_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this

@@ -54,6 +54,10 @@ type CarContract struct {
 
 	RemainingPaymentDate *time.Time `db:"remaining_payment_date" json:"remainingPaymentDate"`
 
+	ContentHash string `db:"content_hash" json:"hash"`
+
+	Approved bool `db:"approved" json:"approved"`
+
 	LastUpdateDate *time.Time `db:"last_updated_date" json:"lastUpdateDate"`
 }
 

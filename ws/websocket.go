@@ -42,6 +42,7 @@ func WriteToContractChannel(contract <-chan interface{}, err chan<- struct{}) {
 	for {
 		select {
 		case m := <-contract:
+			fmt.Printf("%v\n", m)
 			c, ok := m.(eth.ContractNotification)
 			// Send it out to the user it needs to go to
 			if ok {
