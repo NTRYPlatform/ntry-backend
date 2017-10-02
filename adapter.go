@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/NTRYPlatform/ntry-backend/eth"
 	log "go.uber.org/zap"
 )
 
@@ -37,6 +38,7 @@ func decode(r *http.Request, v interface{}) error {
 type Handler struct {
 	logger *log.Logger
 	db     *dbServer
+	ec     *eth.EthClient
 	data   interface{}
 	status int
 }
@@ -52,7 +54,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(h.status)
-	w.Header().Set("Content-Type", "application/json")
+	//TODO: find a more elegant solution
+	if h.data == "attachment" {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", "attachment;filename='image.jpg'")
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+	}
 	if _, err := w.Write(res); err != nil {
 		h.logger.Error(fmt.Sprintf("[adapter ] Error while trying to write response: %s", err))
 	}

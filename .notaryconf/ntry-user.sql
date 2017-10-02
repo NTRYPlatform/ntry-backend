@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `first_name` varchar(50) DEFAULT "",
   `last_name` varchar(50) DEFAULT "",
   `email_address` varchar(100) NOT NULL,
-  `password` varchar(30) NOT NULL,
+  `password` varchar(60) NOT NULL,
   `telephone_number` varchar(20) DEFAULT "",
   `address` varchar(250) DEFAULT "",
   `account_verified` bool DEFAULT false,
@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS `user_to_user` (
 
 # for car contracts
 CREATE TABLE IF NOT EXISTS `car_contract` (
-  `cid` varchar(32) NOT NULL,
+  `cid` int NOT NULL,
+  `buyer` varchar(32) NOT NULL,
+  `seller` varchar(32) NOT NULL,
   `year` int NOT NULL,
   `make` varchar(20) NOT NULL,
   `model` varchar(20) NOT NULL,
@@ -43,16 +45,8 @@ CREATE TABLE IF NOT EXISTS `car_contract` (
   `remaining_payment_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this
   `creation_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this
   `last_updated_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this
-PRIMARY KEY (`cid`)
+PRIMARY KEY (`cid`),
+FOREIGN KEY (`buyer`) REFERENCES `user` (`uid`),
+FOREIGN KEY (`seller`) REFERENCES `user` (`uid`)
 ) DEFAULT CHARSET=utf8;
 
-# for contracts and users - junction table
-CREATE TABLE IF NOT EXISTS `car_contract_user` (
-  `buyer` varchar(32) NOT NULL,
-  `seller` varchar(32) NOT NULL,
-  `cid` varchar(32) NOT NULL,
-  PRIMARY KEY (`buyer`, `seller`, `cid`),
-  FOREIGN KEY (`buyer`) REFERENCES `user` (`uid`) ON DELETE CASCADE,
-  FOREIGN KEY (`seller`) REFERENCES `user` (`uid`) ON DELETE CASCADE,
-  FOREIGN KEY (`cid`) REFERENCES `car_contract` (`cid`) ON DELETE CASCADE
-) DEFAULT CHARSET=utf8;

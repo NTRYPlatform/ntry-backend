@@ -24,6 +24,14 @@ type User struct {
 
 	LastName string `db:"last_name" json:"lastName,omitempty"`
 
+	Country string `db:"country" json:"country"`
+
+	City string `db:"city" json:"city"`
+
+	State string `db:"state" json:"state"`
+
+	Avatar string `db:"avatar" json:"-"`
+
 	Address string `db:"address" json:"address,omitempty"`
 
 	AccountVerified bool `db:"account_verified" json:"accountVerified"`
@@ -78,7 +86,7 @@ func (u *User) OK() error {
 		return &ErrRequired{arg: "Password"}
 	}
 	if len(u.UID) == 0 {
-		return &ErrRequired{arg: "Password"}
+		return &ErrRequired{arg: "UID"}
 	}
 	// non-mandatory values
 	if !(len(u.EthAddress) == 0) {
