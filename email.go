@@ -37,5 +37,6 @@ func verificationAccountMessage(sender, recipient, uuid string) string {
 		"Subject: Confirm your email to join Notary Platform\n\n" +
 		"Hello! Once you've verified your email address, " +
 		"you'll be the newest member of the Notary Platform!\n\n" +
-		"Please sign the following code with your ethereum key for validation:\n\n\t" + uuid
+		"Please sign the following code with your ethereum key for validation:\n\n\t" + uuid +
+		`\n\n[{"constant":false,"inputs":[{"name":"secondary","type":"bytes16"}],"name":"mapAddress","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"}]`
 }

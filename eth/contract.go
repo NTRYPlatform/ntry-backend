@@ -102,7 +102,7 @@ func GetContractFields() interface{} {
 				reqd = false
 			}
 		default:
-			fmt.Println("I don't know, ask stackoverflow.")
+			reqd = false
 		}
 		if reqd {
 			f = append(f, cf)
