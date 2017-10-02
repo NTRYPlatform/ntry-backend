@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"strings"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -16,13 +17,16 @@ import (
 
 // EthClient creates an ethereum client with channel for logs subscription
 type EthClient struct {
-	client  *ethclient.Client
-	Events  chan types.Log
-	gethIPC string
+	client         *ethclient.Client
+	Events         chan types.Log
+	gethIPC        string
+	carContract    common.Address
+	notaryContract common.Address
+	key            string
+	passphrase     string
 }
 
-func NewEthClient(ipc string) (*EthClient, error) {
-
+func NewEthClient(ipc, carContract, notaryContract, key, passphrase string) (*EthClient, error) {
 	client, err := getClient(ipc)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to connect Ethereum client: %v\n", err.Error()))
@@ -30,7 +34,7 @@ func NewEthClient(ipc string) (*EthClient, error) {
 
 	fmt.Printf("Ethereum client created: %v\n", client)
 
-	return &EthClient{client: client, Events: make(chan types.Log, 100), gethIPC: ipc}, nil
+	return &EthClient{client: client, Events: make(chan types.Log, 100), gethIPC: ipc, carContract: common.HexToAddress(carContract), notaryContract: common.HexToAddress(notaryContract), key: key, passphrase: passphrase}, nil
 }
 
 //TODO: singleton
@@ -58,7 +62,6 @@ func (e *EthClient) SubscribeToMapperContract(mapperContract string) error {
 }
 
 //TODO: either remove or update
-
 //DeployMapperContract deploys mapper contract to the configured ethereum network
 func (e *EthClient) DeployMapperContract(key, passphrase string) (string, error) {
 	fmt.Println("Trying to deploy mapper contract...")
@@ -84,118 +87,51 @@ func (e *EthClient) DeployMapperContract(key, passphrase string) (string, error)
 
 }
 
-/**
- * We may not need RPC interface anymore
- */
+func (e *EthClient) CarDeal(hash, buyerAddress, sellerAddress string, cid int64) error {
+	fmt.Println("Trying to make a car deal...")
+	// auth
+	auth, err := bind.NewTransactor(strings.NewReader(e.key), e.passphrase)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to create authorized transactor: %v\n", err))
+	}
+	contract, err := NewCarContractFunctions(e.carContract, e.client)
+	opts := bind.TransactOpts{
+		From:     auth.From,
+		Signer:   auth.Signer,
+		GasLimit: big.NewInt(3141592),
+	}
 
-// func (e *EthClient) GetTransactionReceipt(transaction string) {
-// 	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"eth_getTransactionReceipt", "params":["` + transaction + `"], "id":"1"}`)
-// 	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
-// 	if err != nil {
-// 		log.Printf("Problem with eth_getTransactionReceipt request! %v", err.Error())
-// 	}
+	c := big.NewInt(cid)
+	bytes := []byte(hash)
+	var arr [32]byte
+	copy(arr[:], bytes)
+	tx, err := contract.CarDeal(&opts, c, common.HexToAddress(sellerAddress), common.HexToAddress(buyerAddress), arr)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to create car deal: %v\n", err))
+	}
+	log.Printf("Contract pending deployment: %v\n", tx)
+	log.Printf("Transaction waiting to be mined: 0x%x\n\n", tx.Hash())
 
-// 	client := &http.Client{}
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		log.Println(err)
-// 	}
+	// wait for the transaction to be mined and check
+	// time.Sleep(200 * time.Millisecond)
+	// getTransactionReceipt(tx.Hash().String())
+	return nil
 
-// 	defer resp.Body.Close()
+}
 
-// 	body, _ := ioutil.ReadAll(resp.Body)
+func (e *EthClient) NotaryBalance(address string) (*big.Int, error) {
+	fmt.Println("Trying to get balance...")
+	a := common.HexToAddress(address)
+	contract, err := NewTokenContractFunctions(e.notaryContract, e.client)
+	opts := bind.CallOpts{
+		From: a,
+	}
 
-// 	log.Println(string(body))
-// }
+	b, err := contract.BalanceOf(&opts, a)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to get balance: %v\n", err))
+	}
+	fmt.Printf("Balance... %v\n", b)
+	return b, nil
 
-// func listAccounts() {
-// 	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"personal_listAccounts", "params":[], "id":1}`)
-// 	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
-
-// 	if err != nil {
-// 		log.Printf("Problem with personal_listAccounts request! %v\n", err.Error())
-// 	}
-
-// 	client := &http.Client{}
-// 	resp, err := client.Do(req)
-
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	defer resp.Body.Close()
-
-// 	body, _ := ioutil.ReadAll(resp.Body)
-
-// 	log.Println(string(body))
-// }
-
-// // CreateAccount creates new ethereum account and unlocks it
-// func CreateAccount(password string) (string, string) {
-// 	acc, err := ks.NewAccount(password)
-// 	if err != nil {
-// 		log.Printf("Problem with creating new account! %v\n", err.Error())
-// 	}
-
-// 	keyFile := acc.URL.String()[11:]
-// 	address := acc.Address.String()
-// 	log.Println("New address generated:", address)
-
-// 	// TODO: might want to delete the file???
-// 	keyBytes, err := ioutil.ReadFile(keyFile)
-// 	if err := ks.Unlock(acc, password); err != nil {
-// 		log.Printf("Problem with unlocking new account! %v\n", err.Error())
-
-// 	}
-
-// 	return address, string(keyBytes)
-// }
-
-// func unlockAccount(address string, password string) {
-// 	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"personal_unlockAccount", "params":["` + address + `","` + password + `"], "id":"1"}`)
-// 	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
-
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	client := &http.Client{}
-// 	resp, err := client.Do(req)
-
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	defer resp.Body.Close()
-// 	resMap := make(map[string]interface{})
-// 	body, _ := ioutil.ReadAll(resp.Body)
-// 	err = json.Unmarshal(body, &resMap)
-// 	log.Println(string(body))
-// 	unlocked := resMap["result"].(string)
-// 	log.Println(unlocked)
-// }
-
-// func sendTransaction(to string, from string, amount float32, password string) {
-
-// 	tx := fmt.Sprintf(`{"from": "%s", "to":"%s", "value": web3.toWei(%v, "ether")}`, from, to, amount)
-// 	var callOptions = []byte(`{"jsonrpc": "2.0", "method":"personal_sendTransaction", "params":["` + tx + `","` + password + `"], "id":"1"}`)
-
-// 	req, err := http.NewRequest("post", "http://localhost:8545/", bytes.NewBuffer(callOptions))
-
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	client := &http.Client{}
-// 	resp, err := client.Do(req)
-
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	defer resp.Body.Close()
-
-// 	body, _ := ioutil.ReadAll(resp.Body)
-
-// 	log.Println(string(body))
-// }
+}

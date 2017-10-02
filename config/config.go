@@ -23,6 +23,8 @@ type Config struct {
 	PubKeyFile     string `yaml:"pubKeyFile" required:"true"`
 	PrivKeyFile    string `yaml:"privKeyFile" required:"true"`
 	MapperContract string `yaml:"mapperContract" required:"true"`
+	CarContract    string `yaml:"carContract" required:"true"`
+	TokenContract  string `yaml:"tokenContract" required:"true"`
 	EthDataDir     string `yaml:"ethDataDir" required:"true"`
 	EthPvtKeyFile  string `yaml:"ethPvtKeyFile" required:"true"`
 	EthPassphrase  string `yaml:"ethPassphrase" required:"true"`
@@ -140,12 +142,25 @@ func (c *Config) updateConfig(path string) error {
 	return ioutil.WriteFile(file, out, 0644)
 }
 
-func (c *Config) GetEthKey() string {
-	return c.EthPvtKeyFile
+func (c *Config) GetEthKey() (string, error) {
+	fp := filepath.Join(c.EthDataDir, "keystore", c.EthPvtKeyFile)
+	data, err := readfile(fp)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func (c *Config) GetEthPassphrase() string {
 	return c.EthPassphrase
+}
+
+func (c *Config) GetCarContract() string {
+	return c.CarContract
+}
+
+func (c *Config) GetTokenContract() string {
+	return c.TokenContract
 }
 
 //TODO: check pattern.. should have a trailing /

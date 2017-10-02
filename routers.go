@@ -8,6 +8,7 @@ import (
 func (n *Notary) muxServer() (router *mux.Router) {
 
 	handler := &Handler{}
+	handler.ec = n.ethClient
 	handler.db = n.db
 	handler.logger = n.logger
 
@@ -25,19 +26,22 @@ func (n *Notary) muxServer() (router *mux.Router) {
 		Queries("u", "{u}").Methods("GET")
 	router.Handle("/user/search", Adapt(handler, SearchUsers(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).
 		Queries("q", "{q}").Methods("GET")
-	router.Handle("/user/get/{user}", Adapt(handler, GetUserContacts(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
+	router.Handle("/user/get/{user}", Adapt(handler, GetUser(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
+	router.Handle("/user/balance", Adapt(handler, GetUserBalance(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
 
 	router.Handle("/contacts/add", Adapt(handler, AddContact(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).
 		Queries("u", "{u}").Methods("GET")
 	router.Handle("/contacts/get", Adapt(handler, GetUserContacts(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
 
+	router.Handle("/contracts/submit/{cid}", Adapt(handler, SubmitCarContract(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
 	router.Handle("/contracts/get", Adapt(handler, GetUserContracts(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
 	router.Handle("/contracts/fields", Adapt(handler, GetContractFieldsList(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
-	router.Handle("/contracts/add", Adapt(handler, CreateCarContract(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")
+	router.Handle("/contracts/add", Adapt(handler, CreateCarContract(handler, n.contracts), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")
 	router.Handle("/contracts/update", Adapt(handler, UpdateCarContract(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")
 	router.Handle("/contracts/get/{cid}", Adapt(handler, GetContract(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
 
-	router.HandleFunc("/subscribe/register/{uid}", ws.ServeWs).Methods("GET")
+	router.HandleFunc("/subscribe/register/{uid}", ws.ServeRegWs).Methods("GET")
+	router.HandleFunc("/subscribe/contract/{uid}", ws.ServeContractWs).Methods("GET")
 
 	return router
 }

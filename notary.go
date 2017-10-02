@@ -28,6 +28,7 @@ type Notary struct {
 	ethClient *eth.EthClient
 	ctx       context.Context
 	cancel    context.CancelFunc
+	contracts chan interface{}
 }
 
 // New returns ninstance of Notary
@@ -90,13 +91,17 @@ func (n *Notary) Init() error {
 	}
 
 	// Initialize ETH client
-	n.ethClient, err = eth.NewEthClient(n.conf.GetEthIPC())
+	ethKey, err := n.conf.GetEthKey()
 	if err != nil {
-		return fmt.Errorf("[notary  ] Unable to initialize ETH client", err)
+		return fmt.Errorf("[notary  ] Unable to get ETH key: %v", err)
+	}
+	n.ethClient, err = eth.NewEthClient(n.conf.GetEthIPC(), n.conf.GetCarContract(), n.conf.GetTokenContract(), ethKey, n.conf.GetEthPassphrase())
+	if err != nil {
+		return fmt.Errorf("[notary  ] Unable to initialize ETH client: %v", err)
 	}
 
 	if err = n.ethClient.SubscribeToMapperContract(n.conf.GetMapperContract()); err != nil {
-		return fmt.Errorf("[notary  ] Unable to bind event listener", err)
+		return fmt.Errorf("[notary  ] Unable to bind event listener: %v", err)
 	}
 
 	return nil
@@ -164,6 +169,24 @@ func (n *Notary) EthWatcher() {
 			} else {
 				out <- uid
 			}
+		case <-err:
+			n.logger.Error("WebSocket register stopped working, stopping eth watcher")
+			return
+		}
+	}
+}
+
+func (n *Notary) ContractWatcher() {
+	out := make(chan interface{})
+	err := make(chan struct{})
+
+	go ws.WriteToContractChannel(out, err)
+	for {
+		select {
+		case m := <-n.contracts:
+			n.logger.Info(fmt.Sprintf("[notary  ] %+v", m))
+			out <- m
+
 		case <-err:
 			n.logger.Error("WebSocket register stopped working, stopping eth watcher")
 			return

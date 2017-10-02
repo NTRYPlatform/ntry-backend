@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `first_name` varchar(50) DEFAULT "",
   `last_name` varchar(50) DEFAULT "",
   `email_address` varchar(100) NOT NULL,
-  `password` varchar(30) NOT NULL,
+  `password` varchar(60) NOT NULL,
   `telephone_number` varchar(20) DEFAULT "",
   `address` varchar(250) DEFAULT "",
   `account_verified` bool DEFAULT false,

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/NTRYPlatform/ntry-backend/eth"
 	log "go.uber.org/zap"
 )
 
@@ -37,6 +38,7 @@ func decode(r *http.Request, v interface{}) error {
 type Handler struct {
 	logger *log.Logger
 	db     *dbServer
+	ec     *eth.EthClient
 	data   interface{}
 	status int
 }
