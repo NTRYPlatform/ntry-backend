@@ -15,7 +15,7 @@ func (n *Notary) muxServer() (router *mux.Router) {
 	router = mux.NewRouter()
 
 	router.Handle("/", Adapt(handler, Index(handler), Logging(handler))).Methods("GET")
-	router.Handle("/sign-up", Adapt(handler, CreateUser(handler, n.email), Logging(handler))).Methods("POST")
+	router.Handle("/sign-up", Adapt(handler, CreateUser(handler, n.email, n.conf), Logging(handler))).Methods("POST")
 	router.Handle("/sign-in", Adapt(handler, LoginHandler(handler, n.conf), Logging(handler))).Methods("POST")
 	router.Handle("/send-invitation", Adapt(handler, NotImplemented(handler), Logging(handler))).Methods("GET")
 

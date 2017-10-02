@@ -58,7 +58,7 @@ func Authorization(handler *Handler) Adapter {
 	}
 }
 
-func CreateUser(handler *Handler, email *emailConf) Adapter {
+func CreateUser(handler *Handler, email *emailConf, conf *config.Config) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			u := &User{}
@@ -118,7 +118,7 @@ func CreateUser(handler *Handler, email *emailConf) Adapter {
 
 				handler.logger.Info(fmt.Sprint("[handler ] User successfully saved to db!", u.String()))
 
-				msg := verificationAccountMessage(email.from, u.EmailAddress, u.UID)
+				msg := verificationAccountMessage(email.from, u.EmailAddress, u.UID, conf.GetMapperContract())
 
 				if err := email.sendEmail(u.EmailAddress, msg); err != nil {
 					handler.logger.Error(
@@ -688,7 +688,9 @@ func DownloadAvatar(handler *Handler, conf *config.Config) Adapter {
 					handler.ServeHTTP(w, r)
 					return
 				}
-				path := filepath.Join("/home/someone/Downloads", "11.jpg")
+				path := filepath.Join(conf.GetAvatarDir(), filename)
+				handler.logger.Info(
+					fmt.Sprintf("[handler ] Read from file: %v", path))
 				f, err := os.OpenFile(path, os.O_RDONLY, 0666)
 				if err != nil {
 					handler.logger.Error(
