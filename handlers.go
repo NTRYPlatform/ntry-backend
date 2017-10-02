@@ -651,7 +651,7 @@ func UploadAvatar(handler *Handler, conf *config.Config) Adapter {
 					handler.ServeHTTP(w, r)
 					return
 				}
-				u := User{UID: uid, Avatar: filename}
+				u := User{UID: uid, Avatar: uid + ext}
 				if err := handler.db.UpdateUser(&u); err != nil {
 					handler.logger.Error(
 						fmt.Sprintf("[handler ] Failed to update user record!user: %v, err: %v", u, err))
@@ -671,7 +671,7 @@ func UploadAvatar(handler *Handler, conf *config.Config) Adapter {
 	}
 }
 
-func DownloadAvatar(handler *Handler) Adapter {
+func DownloadAvatar(handler *Handler, conf *config.Config) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == "GET" {
@@ -687,7 +687,8 @@ func DownloadAvatar(handler *Handler) Adapter {
 					handler.ServeHTTP(w, r)
 					return
 				}
-				f, err := os.OpenFile(u.Avatar, os.O_RDONLY, 0666)
+				path := filepath.Join(conf.GetAvatarDir(), u.Avatar)
+				f, err := os.OpenFile(path, os.O_RDONLY, 0666)
 				if err != nil {
 					handler.logger.Error(
 						fmt.Sprintf("[handler ] Error while trying to read from file: %v", err))

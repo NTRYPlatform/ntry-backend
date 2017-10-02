@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `country` varchar(30) DEFAULT "",
   `city` varchar(30) DEFAULT "",
   `state` varchar(20) DEFAULT "",
-  `avatar` varchar(35) DEFAULT "", 
+  `avatar` varchar(50) DEFAULT "", 
   `reg_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uid`)
 ) DEFAULT CHARSET=utf8;
