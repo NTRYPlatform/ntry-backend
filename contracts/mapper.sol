@@ -1,5 +1,3 @@
-pragma solidity ^0.4.13;
-
 contract NotaryMapper {
 
    struct secondaryAddress {
@@ -21,8 +19,14 @@ contract NotaryMapper {
         _;
     }
 
+    function NotaryMapper(){
+        owner = msg.sender;
+        tokenContract = 0x00;
+    }
+
     function mapAddress(bytes16 secondary)
         secondaryAddressMustBeUnique(secondary) {
+        require(tokenContract!=0x00);
         // If primary address is already in use, throw error
         if (primaryToSecondary[msg.sender].inUse) revert();
         // If there is no mapping, this does nothing
@@ -30,7 +34,23 @@ contract NotaryMapper {
 
         primaryToSecondary[msg.sender] = secondaryAddress(secondary, true);
         secondaryInUse[secondary] = true;
+        
+        if (!NotaryPlatformToken(tokenContract).faucet(msg.sender)){
+            revert();
+        }
 
         AddressMapped(msg.sender, secondary);
     }
+    
+    //*********** Only for Test App**************// 
+    address public owner;
+    address public tokenContract;
+    function setTokenAddress(address _newAddress) external{
+        require(msg.sender == owner);
+        tokenContract = _newAddress;
+    }
+}
+
+contract NotaryPlatformToken{
+    function faucet(address _to) returns(bool);
 }
