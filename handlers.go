@@ -677,8 +677,8 @@ func DownloadAvatar(handler *Handler, conf *config.Config) Adapter {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == "GET" {
 				v := mux.Vars(r)
-				uid := v["uid"]
-				//TODO: check
+				uid := v["u"]
+				// TODO: check
 				u := handler.db.GetUserByUID(uid)
 				filename := u.Avatar
 				if len(filename) < 1 {
@@ -688,7 +688,7 @@ func DownloadAvatar(handler *Handler, conf *config.Config) Adapter {
 					handler.ServeHTTP(w, r)
 					return
 				}
-				path := filepath.Join(conf.GetAvatarDir(), u.Avatar)
+				path := filepath.Join("/home/someone/Downloads", "11.jpg")
 				f, err := os.OpenFile(path, os.O_RDONLY, 0666)
 				if err != nil {
 					handler.logger.Error(
