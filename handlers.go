@@ -316,7 +316,7 @@ func AddContact(handler *Handler) Adapter {
 	}
 }
 
-func CreateCarContract(handler *Handler, contracts chan interface{}) Adapter {
+func CreateCarContract(handler *Handler, contracts chan<- interface{}) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c := &eth.CarContract{}
@@ -351,7 +351,7 @@ func CreateCarContract(handler *Handler, contracts chan interface{}) Adapter {
 
 			handler.status = http.StatusCreated
 			handler.data = c.CID
-			contracts <- cn
+			// contracts <- cn
 
 			h.ServeHTTP(w, r)
 			return
