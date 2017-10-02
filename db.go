@@ -169,7 +169,7 @@ func (d *dbServer) GetUserByUID(uid string) *User {
 
 //TODO: orderby/ limit?
 // SearchUserByName returns users by search string
-func (d *dbServer) SearchUserByName(name string) ([]User, error) {
+func (d *dbServer) SearchUserByName(name, uid string) ([]User, error) {
 	var users []User
 	d.logger.Info(fmt.Sprintf("Search for user by name: %s", name))
 	c := fmt.Sprintf("%%%s%%", name)
@@ -177,7 +177,10 @@ func (d *dbServer) SearchUserByName(name string) ([]User, error) {
 		db.Or(
 			db.Cond{"first_name LIKE": c},
 			db.Cond{"last_name LIKE": c})
-	res := d.collection(UserCollection).Find(cond)
+	notUser := db.And(
+		db.Cond{"uid !=": uid},
+	)
+	res := d.collection(UserCollection).Find(cond, notUser)
 	defer res.Close()
 	err := res.All(&users)
 	return users, err

@@ -22,7 +22,7 @@ func (n *Notary) muxServer() (router *mux.Router) {
 	//TODO: specify .Headers()
 	router.Handle("/user/update", Adapt(handler, UpdateUserInfo(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")
 	router.Handle("/user/upload-avatar", Adapt(handler, UploadAvatar(handler, n.conf), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")
-	router.Handle("/user/get-avatar", Adapt(handler, DownloadAvatar(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).
+	router.Handle("/user/get-avatar", Adapt(handler, DownloadAvatar(handler, n.conf), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).
 		Queries("u", "{u}").Methods("GET")
 	router.Handle("/user/search", Adapt(handler, SearchUsers(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).
 		Queries("q", "{q}").Methods("GET")

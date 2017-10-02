@@ -178,7 +178,8 @@ func SearchUsers(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			v := mux.Vars(r)
-			users, err := handler.db.SearchUserByName(v["q"])
+			uid := context.Get(r, "uid")
+			users, err := handler.db.SearchUserByName(v["q"], uid.(string))
 			if err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Failed to fetch users with query: %v", v["q"]))
