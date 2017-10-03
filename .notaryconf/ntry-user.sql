@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS `forgotten_password` (
 # for car contracts
 CREATE TABLE IF NOT EXISTS `car_contract` (
   `cid` int NOT NULL,
-  `buyer` varchar(32) NOT NULL,
-  `seller` varchar(32) NOT NULL,
+  `buyer` varchar(36) NOT NULL,
+  `seller` varchar(36) NOT NULL,
   `year` int NOT NULL,
   `make` varchar(20) NOT NULL,
   `model` varchar(20) NOT NULL,
