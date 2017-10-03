@@ -78,6 +78,10 @@ func CreateUser(handler *Handler, email *emailConf, conf *config.Config) Adapter
 				handler.ServeHTTP(w, r)
 				return
 			}
+			// Add 0x to user id
+			if u.UID[:2] != "0x" {
+				u.UID = "0x" + u.UID
+			}
 
 			// check for pre-existence
 			if exists, err := handler.db.UserExistsByUniqueField(u); err != nil {
