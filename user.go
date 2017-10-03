@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/NTRYPlatform/ntry-backend/eth"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -40,6 +41,17 @@ type User struct {
 	RegTime *time.Time `db:"reg_time" json:"regTime"`
 
 	EthAddressVerification string `db:"eth_verification" json:"ethVerification,omitempty"`
+}
+
+// type UserContracts struct {
+// 	eth.CarContract `db:",inline"`
+// 	User            `db:",inline"`
+// }
+
+type UserContracts struct {
+	UserName        string `db:"first_name,inline" json:"firstName"`
+	LastName        string `db:"last_name,inline" json:"lastName"`
+	eth.CarContract `db:",inline"`
 }
 
 // UserContact the custom JWT token
