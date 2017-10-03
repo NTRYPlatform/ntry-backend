@@ -1,6 +1,7 @@
 package notary
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -14,7 +15,7 @@ type User struct {
 	EthAddress string `db:"eth_address" json:"ethAddress"`
 
 	//TODO: Need to make sure pwd isn't ever serialized, maybe custom marshaller?
-	Password string `db:"password" json:"password" binding:"required"`
+	Password string `db:"password" json:"password,omitempty" binding:"required"`
 
 	EmailAddress string `db:"email_address" json:"email" binding:"required"`
 
@@ -125,4 +126,11 @@ func (u *User) String() string {
 		u.AccountVerified,
 		u.RegTime,
 		u.EthAddressVerification)
+}
+
+func (u *User) MarshalJSON() ([]byte, error) {
+	type user User // prevent recursion
+	x := user(*u)
+	x.Password = ""
+	return json.Marshal(x)
 }
