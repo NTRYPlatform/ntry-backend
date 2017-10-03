@@ -73,7 +73,7 @@ func CreateUser(handler *Handler, email *emailConf, conf *config.Config) Adapter
 
 			// check if user is valid
 			if err := u.OK(); err != nil {
-				handler.status = http.StatusInternalServerError
+				handler.status = http.StatusBadRequest
 				handler.data = err
 				handler.ServeHTTP(w, r)
 				return
@@ -139,7 +139,7 @@ func CreateUser(handler *Handler, email *emailConf, conf *config.Config) Adapter
 	}
 }
 
-//TODO: shouldn't update everything/ handle the password update cond
+//TODO: shouldn't update everything/
 func UpdateUserInfo(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -158,6 +158,99 @@ func UpdateUserInfo(handler *Handler) Adapter {
 			if err := handler.db.UpdateUser(u); err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Failed to update user record!user: %v, err: %v", u, err))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+			// Follow the normal flow
+			handler.status = http.StatusOK
+			handler.data = true
+			w.Header().Set("Content-Type", "application/json")
+			h.ServeHTTP(w, r)
+			return
+
+		})
+	}
+}
+
+func ForgotPassword(handler *Handler, email *emailConf, conf *config.Config) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u := &LoginUser{}
+			if err := decode(r, u); err != nil {
+				// Set error data and jump to the last handler
+				// implemented by *Handler
+				handler.status = http.StatusBadRequest
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// TODO: check if email is valid
+			if len(u.EmailAddress) < 1 {
+				handler.status = http.StatusInternalServerError
+				handler.data = "Invalid email address!"
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			// generate temp password
+			tmp := RandString(10)
+			tmpHash, _ := HashPassword(tmp) //TODO: error check
+			t := time.Now().Unix()
+			if err := handler.db.InsertForgottenPassword(u.EmailAddress, tmpHash, t); err != nil {
+				handler.status = http.StatusInternalServerError
+				handler.data = "Can't provide account recovery!"
+				handler.ServeHTTP(w, r)
+				return
+
+			}
+
+			msg := changePasswordMessage(email.from, u.EmailAddress, time.Unix(t, 0).String(), tmp)
+
+			if err := email.sendEmail(u.EmailAddress, msg); err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Failed to send verification email! user: %v, err: %v", u, err))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			handler.status = http.StatusCreated
+			handler.data = "Check your email!"
+
+			h.ServeHTTP(w, r)
+
+		})
+	}
+}
+
+//TODO: Need to add time check on subsequent tokens to make sure they're not older
+func ChangePassword(handler *Handler) Adapter {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u := &ChangePasswordUser{}
+			if err := decode(r, u); err != nil {
+				// Set error data and jump to the last handler
+				// implemented by *Handler
+				handler.status = http.StatusBadRequest
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			if err := u.OK(); err != nil {
+				handler.status = http.StatusBadRequest
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			if err := handler.db.ChangeUserPassword(u); err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Failed to change password!user: %v, err: %v", u.EmailAddress, err))
 				handler.status = http.StatusInternalServerError
 				handler.data = err
 				handler.ServeHTTP(w, r)

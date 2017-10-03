@@ -1,6 +1,7 @@
 package notary
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NTRYPlatform/ntry-backend/eth"
@@ -13,9 +14,10 @@ import (
 
 // TODO:config
 const (
-	UserCollection        = `user`
-	UserContacts          = `user_to_user`
-	CarContractCollection = `car_contract`
+	UserCollection         = `user`
+	UserContacts           = `user_to_user`
+	CarContractCollection  = `car_contract`
+	ForgottenPwdCollection = `forgotten_password`
 )
 
 type dbServer struct {
@@ -110,7 +112,7 @@ func (d *dbServer) collection(collection string) db.Collection {
 //TODO: This could change everything... edit so it would only change certain fields
 // UpdateUser updates user and returns error if any
 func (d *dbServer) UpdateUser(user *User) (err error) {
-	prev := d.GetUserByUID((*user).UID)
+	prev := d.GetUserByUID(user.UID)
 	//TODO: technically else should throw error
 	if prev != nil {
 		if err := mergo.MergeWithOverwrite(prev, user); err != nil {
@@ -118,7 +120,7 @@ func (d *dbServer) UpdateUser(user *User) (err error) {
 			return err
 		}
 
-		res := d.collection(UserCollection).Find("uid = ?", (*user).UID)
+		res := d.collection(UserCollection).Find("uid = ?", user.UID)
 		d.logger.Info(fmt.Sprintf("Query created: %v", res))
 		defer res.Close()
 		err = res.Update(prev)
@@ -155,6 +157,39 @@ func (d *dbServer) LoginUserValidation(user *LoginUser) (*User, error) {
 	return &u, nil
 }
 
+func (d *dbServer) ChangeUserPassword(u *ChangePasswordUser) error {
+
+	user := ForgottenPasswordWithUser{}
+	res := d.sess.Select("*").From(UserCollection).Join(ForgottenPwdCollection).On("user.uid=forgotten_password.uid").Where("user.email_address=?", u.EmailAddress)
+	d.logger.Debug(fmt.Sprintf("Query created: %v", res))
+	// defer res.Close()
+	err := res.One(&user)
+	if err != nil {
+		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
+		return err
+	}
+	// d.logger.Info(fmt.Sprintf("User found: %v", u.UID))
+	// check if account is verified, and then check if password is valid
+	if !user.AccountVerified {
+		d.logger.Info(fmt.Sprintf("User '%s' is not verified!", user.EmailAddress))
+		return errors.New("error: user not verified")
+	}
+	if !CheckPasswordHash(u.PreviousPassword, user.TempPassword) {
+		d.logger.Info(fmt.Sprintf("User '%s' gave bad password", user.EmailAddress))
+		return errors.New("error: cannot reset password")
+	}
+
+	// update password
+	if err := d.UpdatePassword(user.EmailAddress, u.NewPassword); err != nil {
+		d.logger.Info(fmt.Sprintf("Can't update password! %v", user.EmailAddress))
+		return errors.New("error: cannot update password")
+	}
+	err = d.sess.Collection(ForgottenPwdCollection).
+		Find("temp_password = ?", user.TempPassword).
+		Delete()
+	return err
+}
+
 //TODO: error
 func (d *dbServer) GetUserByUID(uid string) *User {
 	u := User{}
@@ -165,6 +200,19 @@ func (d *dbServer) GetUserByUID(uid string) *User {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err.Error()))
 	}
 	return &u
+}
+
+func (d *dbServer) UpdatePassword(email, password string) error {
+	u := User{}
+	res := d.collection(UserCollection).Find("email = ?", email)
+	defer res.Close()
+	err := res.One(&u)
+	if err != nil {
+		d.logger.Error(fmt.Sprintf("Not cool! %v", err.Error()))
+		return err
+	}
+	u.Password = password
+	return d.UpdateUser(&u)
 }
 
 //TODO: orderby/ limit?
@@ -209,7 +257,7 @@ func (d *dbServer) GetContractByCID(cid int64) *eth.CarContract {
 //TODO: This could change everything... edit so it would only change certain fields
 // UpdateContract updates the contract and returns error if any
 func (d *dbServer) UpdateContract(c *eth.CarContract) (err error) {
-	prev := d.GetContractByCID((*c).CID)
+	prev := d.GetContractByCID(c.CID)
 	//TODO: technically else should throw error
 	if prev != nil {
 		if err := mergo.MergeWithOverwrite(prev, c); err != nil {
@@ -256,4 +304,20 @@ func (d *dbServer) GetContractParticipants(buyerID, sellerID string) (string, st
 	}
 	// defer res.Close() TODO: can't figure this out
 	return buyer.EthAddress, seller.EthAddress, nil
+}
+
+func (d *dbServer) InsertForgottenPassword(email, password string, timestamp int64) error {
+	u := User{}
+	res := d.sess.Select("uid").From(UserCollection).Where("email_address=?", email)
+	if err := res.One(&u); err != nil {
+		d.logger.Error(fmt.Sprintf("Couldn'tget user with email: %v", email))
+		return err
+	}
+	fp := ForgottenPassword{UID: u.UID, TempPassword: password, Timestamp: timestamp}
+	_, err := d.collection(ForgottenPwdCollection).Insert(&fp)
+	if err != nil {
+		d.logger.Error(fmt.Sprintf("Oops! Couldn't add forgotten password object! %v", err))
+		return err
+	}
+	return nil
 }

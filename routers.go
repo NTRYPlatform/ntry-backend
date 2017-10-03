@@ -18,6 +18,8 @@ func (n *Notary) muxServer() (router *mux.Router) {
 	router.Handle("/sign-up", Adapt(handler, CreateUser(handler, n.email, n.conf), Logging(handler))).Methods("POST")
 	router.Handle("/sign-in", Adapt(handler, LoginHandler(handler, n.conf), Logging(handler))).Methods("POST")
 	router.Handle("/send-invitation", Adapt(handler, NotImplemented(handler), Logging(handler))).Methods("GET")
+	router.Handle("/forgot-password", Adapt(handler, ForgotPassword(handler, n.email, n.conf), Logging(handler))).Methods("POST")
+	router.Handle("/change-password", Adapt(handler, ChangePassword(handler), Logging(handler))).Methods("POST")
 
 	//TODO: specify .Headers()
 	router.Handle("/user/update", Adapt(handler, UpdateUserInfo(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")

@@ -65,6 +65,23 @@ type LoginUser struct {
 	Password     string `json:"password" binding:"required"`
 }
 
+type ForgottenPassword struct {
+	UID          string `db:"uid" json:"-"  binding:"required"`
+	Timestamp    int64  `db:"timestamp" json:"-"`
+	TempPassword string `db:"temp_password" json:"-" binding:"required"`
+}
+
+type ChangePasswordUser struct {
+	EmailAddress     string `json:"email" binding:"required"`
+	PreviousPassword string `json:"prevPassword" binding:"required"`
+	NewPassword      string `json:"newPassword" binding:"required"`
+}
+
+type ForgottenPasswordWithUser struct {
+	User              `db:",inline"`
+	ForgottenPassword `db:",inline"`
+}
+
 // VerifyUser sets verification info
 func VerifyUser(uid, address, txHash string) *User {
 	return &User{UID: uid, EthAddress: address, EthAddressVerification: txHash, AccountVerified: true}
@@ -82,6 +99,19 @@ func (u *LoginUser) OK() error {
 	}
 	if len(u.EmailAddress) == 0 {
 		return &ErrRequired{arg: "Email Address"}
+	}
+	return nil
+}
+
+func (u *ChangePasswordUser) OK() error {
+	if len(u.PreviousPassword) == 0 {
+		return &ErrRequired{arg: "Prev Password Required"}
+	}
+	if len(u.EmailAddress) == 0 {
+		return &ErrRequired{arg: "Email Address"}
+	}
+	if len(u.NewPassword) == 0 {
+		return &ErrRequired{arg: "New Password Required"}
 	}
 	return nil
 }

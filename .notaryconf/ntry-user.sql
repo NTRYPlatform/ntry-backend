@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS `user` (
-  `uid` varchar(32) NOT NULL, # this is the user id
+  `uid` varchar(36) NOT NULL, # this is the user id
   `eth_address` varchar(42) DEFAULT "",
   `first_name` varchar(50) DEFAULT "",
   `last_name` varchar(50) DEFAULT "",
@@ -19,11 +19,20 @@ CREATE TABLE IF NOT EXISTS `user` (
 
 # for contacts - user-to-user junction table
 CREATE TABLE IF NOT EXISTS `user_to_user` (
-  `p_uid` varchar(32) NOT NULL,
-  `s_uid` varchar(32) NOT NULL,
+  `p_uid` varchar(36) NOT NULL,
+  `s_uid` varchar(36) NOT NULL,
   PRIMARY KEY (`p_uid`,`s_uid`),
   FOREIGN KEY (`p_uid`) REFERENCES `user` (`uid`) ON DELETE CASCADE,
   FOREIGN KEY (`s_uid`) REFERENCES `user` (`uid`) ON DELETE CASCADE
+) DEFAULT CHARSET=utf8;
+
+# forgotten password
+CREATE TABLE IF NOT EXISTS `forgotten_password` (
+  `uid` varchar(36) NOT NULL,
+  `timestamp` int NOT NULL,
+  `temp_password` varchar(60) NOT NULL,
+  PRIMARY KEY (`uid`),
+  FOREIGN KEY (`uid`) REFERENCES `user` (`uid`) ON DELETE CASCADE
 ) DEFAULT CHARSET=utf8;
 
 # for car contracts
