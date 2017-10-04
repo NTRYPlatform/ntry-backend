@@ -200,7 +200,7 @@ func ForgotPassword(handler *Handler, email *emailConf, conf *config.Config) Ada
 			}
 
 			// generate temp password
-			tmp := RandString(10)
+			tmp := RandString(6)
 			tmpHash, _ := HashPassword(tmp) //TODO: error check
 			t := time.Now().Unix()
 			if err := handler.db.InsertForgottenPassword(u.EmailAddress, tmpHash, t); err != nil {
@@ -256,7 +256,7 @@ func ChangePassword(handler *Handler) Adapter {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Failed to change password!user: %v, err: %v", u.EmailAddress, err))
 				handler.status = http.StatusInternalServerError
-				handler.data = err
+				handler.data = err.Error()
 				handler.ServeHTTP(w, r)
 				return
 			}

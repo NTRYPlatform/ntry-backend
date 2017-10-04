@@ -204,14 +204,17 @@ func (d *dbServer) GetUserByUID(uid string) *User {
 
 func (d *dbServer) UpdatePassword(email, password string) error {
 	u := User{}
-	res := d.collection(UserCollection).Find("email = ?", email)
+	res := d.collection(UserCollection).Find("email_address = ?", email)
 	defer res.Close()
 	err := res.One(&u)
 	if err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err.Error()))
 		return err
 	}
-	u.Password = password
+	if u.Password, err = HashPassword(password); err != nil {
+		d.logger.Error(fmt.Sprintf("Can't hash password!", err.Error()))
+		return err
+	}
 	return d.UpdateUser(&u)
 }
 
