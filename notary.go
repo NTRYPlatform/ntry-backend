@@ -162,7 +162,7 @@ func (n *Notary) EthWatcher() {
 			address := data[24:64]
 			uid := data[64:96]
 			n.logger.Info(fmt.Sprintf("Address: %s, UID: %s, Tx Hash: %s", address, uid, ethLog.TxHash.String()))
-			u := VerifyUser(uid, address, ethLog.TxHash.String())
+			u := VerifyUser("0x"+uid, "0x"+address, ethLog.TxHash.String())
 
 			if err := n.db.UpdateUser(u); err != nil {
 				n.logger.Error(fmt.Sprintf("Couldn't update user! %v", err.Error()))

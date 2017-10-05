@@ -147,11 +147,11 @@ func (d *dbServer) LoginUserValidation(user *LoginUser) (*User, error) {
 	// check if account is verified, and then check if password is valid
 	if !u.AccountVerified {
 		d.logger.Info(fmt.Sprintf("User '%s' is not verified!", user.EmailAddress))
-		return nil, nil
+		return nil, errors.New("User is not verified yet!")
 	}
 	if !CheckPasswordHash(user.Password, u.Password) {
 		d.logger.Info(fmt.Sprintf("User '%s' gave bad password", user.EmailAddress))
-		return nil, nil
+		return nil, errors.New("Incorrect password!")
 	}
 
 	return &u, nil
@@ -224,15 +224,10 @@ func (d *dbServer) SearchUserByName(name, uid string) ([]User, error) {
 	var users []User
 	d.logger.Info(fmt.Sprintf("Search for user by name: %s", name))
 	c := fmt.Sprintf("%%%s%%", name)
-	cond :=
-		db.Or(
-			db.Cond{"first_name LIKE": c},
-			db.Cond{"last_name LIKE": c})
-	notUser := db.And(
-		db.Cond{"uid !=": uid},
-	)
-	res := d.collection(UserCollection).Find(cond, notUser)
-	defer res.Close()
+
+	res := d.sess.Select("*").From(UserCollection).
+		Where("((first_name LIKE ? OR last_name LIKE ?) AND (`uid` != ? AND `uid` NOT IN (select s_uid from user_to_user where p_uid=?)))", c, c, uid, uid)
+	// defer res.Close()
 	err := res.All(&users)
 	return users, err
 }

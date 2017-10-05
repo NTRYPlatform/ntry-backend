@@ -20,11 +20,11 @@ type User struct {
 
 	EmailAddress string `db:"email_address" json:"email" binding:"required"`
 
-	TelephoneNumber string `db:"telephone_number" json:"phone,omitempty"`
+	TelephoneNumber string `db:"telephone_number" json:"phone"`
 
-	FirstName string `db:"first_name" json:"firstName,omitempty"`
+	FirstName string `db:"first_name" json:"firstName"`
 
-	LastName string `db:"last_name" json:"lastName,omitempty"`
+	LastName string `db:"last_name" json:"lastName"`
 
 	Country string `db:"country" json:"country"`
 
@@ -34,7 +34,7 @@ type User struct {
 
 	Avatar string `db:"avatar" json:"-"`
 
-	Address string `db:"address" json:"address,omitempty"`
+	Address string `db:"address" json:"address"`
 
 	AccountVerified bool `db:"account_verified" json:"accountVerified"`
 
