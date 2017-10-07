@@ -452,7 +452,7 @@ func CreateCarContract(handler *Handler, contracts chan<- interface{}) Adapter {
 
 			handler.status = http.StatusCreated
 			handler.data = c.CID
-			// contracts <- cn
+			contracts <- cn
 
 			h.ServeHTTP(w, r)
 			return
@@ -544,8 +544,10 @@ func UpdateCarContract(handler *Handler) Adapter {
 func GetUserContracts(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			v := mux.Vars(r)
+			q := v["criteria"]
 			u := context.Get(r, "uid")
-			users, err := handler.db.FetchUserContracts(u.(string))
+			users, err := handler.db.FetchUserContracts(u.(string), q)
 			if err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Failed to fetch user contracts with query: %v", u.(string)))

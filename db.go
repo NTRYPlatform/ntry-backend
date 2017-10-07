@@ -274,9 +274,17 @@ func (d *dbServer) UpdateContract(c *eth.CarContract) (err error) {
 	return
 }
 
-func (d *dbServer) FetchUserContracts(uid string) ([]UserContracts, error) {
+func (d *dbServer) FetchUserContracts(uid, query string) ([]UserContracts, error) {
 	var s []UserContracts
 	res := d.sess.Select("*").From(UserCollection).Join(CarContractCollection).On("(user.uid=car_contract.seller OR user.uid=car_contract.buyer)").Where("car_contract.seller=? OR car_contract.buyer=? AND user.uid!=?", uid, uid, uid)
+	switch query {
+	case "buyer":
+		res = d.sess.Select("*").From(UserCollection).Join(CarContractCollection).On("(user.uid=car_contract.seller)").Where("car_contract.buyer=?", uid)
+	case "seller":
+		res = d.sess.Select("*").From(UserCollection).Join(CarContractCollection).On("(user.uid=car_contract.buyer)").Where("car_contract.seller=?", uid)
+
+	}
+
 	err := res.All(&s)
 	// fmt.Printf("%v", s)
 	// res = d.sess.Select("*").From(CarContractCollection).

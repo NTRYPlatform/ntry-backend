@@ -141,6 +141,7 @@ func (n *Notary) makeID() error {
 func (n *Notary) Start() error {
 
 	go n.EthWatcher()
+	go n.ContractWatcher()
 
 	router := n.muxServer()
 	addr := n.conf.GetServerAddress()
