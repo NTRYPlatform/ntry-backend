@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"math/big"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -222,7 +224,7 @@ func ForgotPassword(handler *Handler, email *emailConf, conf *config.Config) Ada
 				return
 			}
 
-			handler.status = http.StatusCreated
+			handler.status = http.StatusCreated // TODO: change to OK
 			handler.data = "Check your email!"
 
 			h.ServeHTTP(w, r)
@@ -261,7 +263,7 @@ func ChangePassword(handler *Handler) Adapter {
 				return
 			}
 			// Follow the normal flow
-			handler.status = http.StatusOK
+			handler.status = http.StatusCreated //TODO: change to OK
 			handler.data = true
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
@@ -377,7 +379,9 @@ func GetUserBalance(handler *Handler) Adapter {
 
 			// Follow the normal flow
 			handler.status = http.StatusOK
-			handler.data = *bal
+			base18 := math.Pow(10, 18)
+			result := big.NewInt(int64(base18))
+			handler.data = result.Div(bal, result).Uint64()
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
 			return
@@ -474,12 +478,12 @@ func SubmitCarContract(handler *Handler) Adapter {
 				handler.ServeHTTP(w, r)
 				return
 			}
-			err = handler.ec.CarDeal(c.Hash(), buyer, seller, i)
+			tx, err := handler.ec.CarDeal(c.Hash(), buyer, seller, i)
 			if err != nil {
 				handler.logger.Error(
-					fmt.Sprintf("[handler ] Can't write contract to the blockchain! cid: %v,", cid))
+					fmt.Sprintf("[handler ] Can't write contract to the blockchain! cid: %v, err: %v", cid, err))
 				handler.status = http.StatusInternalServerError
-				handler.data = err
+				handler.data = "Can't write contract to the blockchain!"
 				handler.ServeHTTP(w, r)
 				return
 			}
@@ -497,6 +501,7 @@ func SubmitCarContract(handler *Handler) Adapter {
 			}
 
 			handler.status = http.StatusOK
+			handler.data = tx
 			h.ServeHTTP(w, r)
 
 		})

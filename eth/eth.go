@@ -87,12 +87,12 @@ func (e *EthClient) DeployMapperContract(key, passphrase string) (string, error)
 
 }
 
-func (e *EthClient) CarDeal(hash, buyerAddress, sellerAddress string, cid int64) error {
+func (e *EthClient) CarDeal(hash, buyerAddress, sellerAddress string, cid int64) (string, error) {
 	fmt.Println("Trying to make a car deal...")
 	// auth
 	auth, err := bind.NewTransactor(strings.NewReader(e.key), e.passphrase)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to create authorized transactor: %v\n", err))
+		return "", err
 	}
 	contract, err := NewCarContractFunctions(e.carContract, e.client)
 	opts := bind.TransactOpts{
@@ -107,7 +107,7 @@ func (e *EthClient) CarDeal(hash, buyerAddress, sellerAddress string, cid int64)
 	copy(arr[:], bytes)
 	tx, err := contract.CarDeal(&opts, c, common.HexToAddress(sellerAddress), common.HexToAddress(buyerAddress), arr)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to create car deal: %v\n", err))
+		return "", err
 	}
 	log.Printf("Contract pending deployment: %v\n", tx)
 	log.Printf("Transaction waiting to be mined: 0x%x\n\n", tx.Hash())
@@ -115,7 +115,7 @@ func (e *EthClient) CarDeal(hash, buyerAddress, sellerAddress string, cid int64)
 	// wait for the transaction to be mined and check
 	// time.Sleep(200 * time.Millisecond)
 	// getTransactionReceipt(tx.Hash().String())
-	return nil
+	return tx.Hash().Hex(), nil
 
 }
 
