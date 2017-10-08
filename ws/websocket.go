@@ -47,7 +47,7 @@ func WriteToContractChannel(contract <-chan interface{}, err chan<- struct{}) {
 			// Send it out to the user it needs to go to
 			if ok {
 				if client, ok := contractSubscribers[c.NotifyParty]; ok {
-					err := client.WriteJSON(m)
+					err := client.WriteJSON(c.Contract)
 					if err != nil {
 						fmt.Printf("Error writing to connection for user: %s\n", m)
 					}

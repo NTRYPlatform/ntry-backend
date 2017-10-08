@@ -445,11 +445,21 @@ func CreateCarContract(handler *Handler, contracts chan<- interface{}) Adapter {
 			handler.logger.Info(fmt.Sprint("[handler ] Contract successfully saved to db!", (*c).CID))
 
 			uid := context.Get(r, "uid")
-			cn := eth.ContractNotification{Contract: *c}
+			cn := eth.ContractNotification{}
 			if cn.NotifyParty = c.Seller; c.Seller == uid {
 				cn.NotifyParty = c.Buyer
 			}
+			uc, err := handler.db.FetchContractByCID(c.CID, uid.(string))
+			if err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Can't fetch user for contract! cid: %v, err: %v", c.CID, err))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
 
+			cn.Contract = *uc
 			handler.status = http.StatusCreated
 			handler.data = c.CID
 			contracts <- cn

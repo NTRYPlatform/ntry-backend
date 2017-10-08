@@ -9,11 +9,6 @@ import (
 	"time"
 )
 
-type ContractNotification struct {
-	Contract    CarContract
-	NotifyParty string
-}
-
 type ContractFields struct {
 	Name        string      `json:"name"`
 	Type        string      `json:"type"`
@@ -59,6 +54,17 @@ type CarContract struct {
 	Approved bool `db:"approved" json:"approved"`
 
 	LastUpdateDate *time.Time `db:"last_updated_date" json:"lastUpdateDate"`
+}
+
+type UserContracts struct {
+	UserName    string `db:"first_name,inline" json:"firstName"`
+	LastName    string `db:"last_name,inline" json:"lastName"`
+	CarContract `db:",inline"`
+}
+
+type ContractNotification struct {
+	Contract    UserContracts
+	NotifyParty string
 }
 
 // GetContractFields

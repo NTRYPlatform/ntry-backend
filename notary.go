@@ -104,6 +104,9 @@ func (n *Notary) Init() error {
 		return fmt.Errorf("[notary  ] Unable to bind event listener: %v", err)
 	}
 
+	// create new channel for notary contracts
+	n.contracts = make(chan interface{})
+
 	return nil
 
 }

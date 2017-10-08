@@ -274,8 +274,8 @@ func (d *dbServer) UpdateContract(c *eth.CarContract) (err error) {
 	return
 }
 
-func (d *dbServer) FetchUserContracts(uid, query string) ([]UserContracts, error) {
-	var s []UserContracts
+func (d *dbServer) FetchUserContracts(uid, query string) ([]eth.UserContracts, error) {
+	var s []eth.UserContracts
 	res := d.sess.Select("*").From(UserCollection).Join(CarContractCollection).On("(user.uid=car_contract.seller OR user.uid=car_contract.buyer)").Where("car_contract.seller=? OR car_contract.buyer=? AND user.uid!=?", uid, uid, uid)
 	switch query {
 	case "buyer":
@@ -285,13 +285,22 @@ func (d *dbServer) FetchUserContracts(uid, query string) ([]UserContracts, error
 
 	}
 
-	err := res.All(&s)
+	err := res.OrderBy("-car_contract.cid").All(&s)
 	// fmt.Printf("%v", s)
 	// res = d.sess.Select("*").From(CarContractCollection).
 	// 	Where("cid in (select cid from car_contract where buyer=? OR seller=?) ", uid, uid)
 	// // defer res.Close() TODO: can't figure this out
 	// err = res.All(&c)
 	return s, err
+}
+
+func (d *dbServer) FetchContractByCID(cid int64, uid string) (*eth.UserContracts, error) {
+	var s eth.UserContracts
+	res := d.sess.Select("*").From(UserCollection).Join(CarContractCollection).On("(user.uid=car_contract.seller OR user.uid=car_contract.buyer)").Where("car_contract.cid=? AND user.uid=?", cid, uid)
+	// defer res.Close()
+	err := res.One(&s)
+
+	return &s, err
 }
 
 //TODO: SO NOT efficient
