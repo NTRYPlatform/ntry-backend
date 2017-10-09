@@ -3,6 +3,7 @@ package ws
 import (
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/NTRYPlatform/ntry-backend/eth"
 	"github.com/gorilla/mux"
@@ -11,23 +12,39 @@ import (
 )
 
 //TODO: create abstraction
-var regSubscribers = make(map[string]*websocket.Conn)
-var contractSubscribers = make(map[string]*websocket.Conn)
 
-func WriteToRegisterChannel(register <-chan string, err chan<- struct{}) {
+type ChannelSub struct {
+	sync.Mutex
+	subscribers map[string]*websocket.Conn
+}
+
+type Channels struct {
+	regChannel ChannelSub
+	conChannel ChannelSub
+}
+
+func NewChannels() *Channels {
+	ch := Channels{regChannel: ChannelSub{subscribers: make(map[string]*websocket.Conn)}, conChannel: ChannelSub{subscribers: make(map[string]*websocket.Conn)}}
+	return &ch
+}
+
+// var regSubscribers = make(map[string]*websocket.Conn)
+// var contractSubscribers = make(map[string]*websocket.Conn)
+
+func (ch *Channels) WriteToRegisterChannel(register <-chan string, err chan<- struct{}) {
 
 	// Grab the next message from the register channel
 	for {
 		select {
 		case m := <-register:
 			// Send it out to the user it needs to go to
-			if client, ok := regSubscribers[m]; ok {
+			if client, ok := ch.regChannel.subscribers[m]; ok {
 				err := client.WriteJSON("{\"registered\":true, \"uid\":\"" + m + "\"}")
 				if err != nil {
 					fmt.Printf("Error writing to connection for user: %s\n", m)
 				}
 				client.Close()
-				delete(regSubscribers, m)
+				delete(ch.regChannel.subscribers, m)
 			}
 		default:
 
@@ -36,7 +53,7 @@ func WriteToRegisterChannel(register <-chan string, err chan<- struct{}) {
 	err <- struct{}{}
 }
 
-func WriteToContractChannel(contract <-chan interface{}, err chan<- struct{}) {
+func (ch *Channels) WriteToContractChannel(contract <-chan interface{}, err chan<- struct{}) {
 
 	// Grab the next message from the contract channel
 	for {
@@ -46,7 +63,7 @@ func WriteToContractChannel(contract <-chan interface{}, err chan<- struct{}) {
 			c, ok := m.(eth.ContractNotification)
 			// Send it out to the user it needs to go to
 			if ok {
-				if client, ok := contractSubscribers[c.NotifyParty]; ok {
+				if client, ok := ch.conChannel.subscribers[c.NotifyParty]; ok {
 					err := client.WriteJSON(c.Contract)
 					if err != nil {
 						fmt.Printf("Error writing to connection for user: %s\n", m)
@@ -59,7 +76,7 @@ func WriteToContractChannel(contract <-chan interface{}, err chan<- struct{}) {
 	err <- struct{}{}
 }
 
-func ServeRegWs(w http.ResponseWriter, r *http.Request) {
+func (ch *Channels) ServeRegWs(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -73,12 +90,12 @@ func ServeRegWs(w http.ResponseWriter, r *http.Request) {
 		// log.Println(err)
 		return
 	}
-	//TODO: figure out a way to unregister/close
-
-	regSubscribers[v["uid"]] = ws
+	ch.regChannel.Lock()
+	ch.regChannel.subscribers[v["uid"]] = ws
+	ch.regChannel.Unlock()
 }
 
-func ServeContractWs(w http.ResponseWriter, r *http.Request) {
+func (ch *Channels) ServeContractWs(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -93,6 +110,7 @@ func ServeContractWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//TODO: figure out a way to unregister/close
-
-	contractSubscribers[v["uid"]] = ws
+	ch.conChannel.Lock()
+	ch.conChannel.subscribers[v["uid"]] = ws
+	ch.conChannel.Unlock()
 }

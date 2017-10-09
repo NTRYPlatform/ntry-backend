@@ -20,15 +20,16 @@ import (
 // TODO:
 // Handle read write locking
 type Notary struct {
-	id        uuid.UUID
-	db        *dbServer
-	conf      *config.Config
-	email     *emailConf
-	logger    *log.Logger
-	ethClient *eth.EthClient
-	ctx       context.Context
-	cancel    context.CancelFunc
-	contracts chan interface{}
+	id         uuid.UUID
+	db         *dbServer
+	conf       *config.Config
+	email      *emailConf
+	logger     *log.Logger
+	ethClient  *eth.EthClient
+	ctx        context.Context
+	cancel     context.CancelFunc
+	wsChannels *ws.Channels
+	contracts  chan interface{}
 }
 
 // New returns ninstance of Notary
@@ -55,6 +56,8 @@ func New(args map[string]interface{}) (*Notary, error) {
 	if ntry.conf, err = config.Init(confPath, ntry.logger); err != nil {
 		return nil, err
 	}
+
+	ntry.wsChannels = ws.NewChannels()
 
 	return ntry, nil
 }
@@ -157,7 +160,7 @@ func (n *Notary) EthWatcher() {
 	out := make(chan string)
 	err := make(chan struct{})
 
-	go ws.WriteToRegisterChannel(out, err)
+	go n.wsChannels.WriteToRegisterChannel(out, err)
 	for {
 		select {
 		case ethLog := <-n.ethClient.Events:
@@ -184,7 +187,7 @@ func (n *Notary) ContractWatcher() {
 	out := make(chan interface{})
 	err := make(chan struct{})
 
-	go ws.WriteToContractChannel(out, err)
+	go n.wsChannels.WriteToContractChannel(out, err)
 	for {
 		select {
 		case m := <-n.contracts:
