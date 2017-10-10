@@ -501,6 +501,7 @@ func SubmitCarContract(handler *Handler) Adapter {
 			//update contract with hash and approved
 			c.ContentHash = c.Hash()
 			c.Approved = true
+			c.TxHash = tx
 			if err := handler.db.UpdateContract(c); err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Failed to update car contract! contract: %v, err: %v", c, err))
@@ -521,7 +522,7 @@ func SubmitCarContract(handler *Handler) Adapter {
 func UpdateCarContract(handler *Handler) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			c := &eth.CarContract{}
+			c := &eth.CarContractWithTx{}
 			if err := decode(r, c); err != nil {
 				// Set error data and jump to the last handler
 				// implemented by *Handler
