@@ -329,11 +329,11 @@ func GetUser(handler *Handler) Adapter {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			v := mux.Vars(r)
 			uid := v["user"]
-			users := handler.db.GetUserByUID(uid)
-			if users == nil {
-				msg := fmt.Sprintf("Failed to fetch users with query: %v", uid)
+			user, err := handler.db.GetUserByUID(uid)
+			if err != nil {
+				msg := fmt.Sprintf("Failed to fetch users with query: %v ", uid)
 				handler.logger.Error(
-					fmt.Sprintf("[handler ] %v", msg))
+					fmt.Sprintf("[handler ] msg: %v, err: %v", msg, err))
 				handler.status = http.StatusInternalServerError
 				handler.data = msg
 				handler.ServeHTTP(w, r)
@@ -342,7 +342,7 @@ func GetUser(handler *Handler) Adapter {
 
 			// Follow the normal flow
 			handler.status = http.StatusOK
-			handler.data = users
+			handler.data = user
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
 			return
@@ -356,11 +356,11 @@ func GetUserBalance(handler *Handler) Adapter {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			uid := context.Get(r, "uid")
 			//TODO: find a more efficient method.. maybe add the eth address in JWT?
-			user := handler.db.GetUserByUID(uid.(string))
-			if user == nil {
+			user, err := handler.db.GetUserByUID(uid.(string))
+			if err != nil {
 				msg := fmt.Sprintf("Failed to fetch users with query: %v", uid)
 				handler.logger.Error(
-					fmt.Sprintf("[handler ] %v", msg))
+					fmt.Sprintf("[handler ] %v", err))
 				handler.status = http.StatusInternalServerError
 				handler.data = msg
 				handler.ServeHTTP(w, r)
@@ -445,7 +445,7 @@ func CreateCarContract(handler *Handler, contracts chan<- interface{}) Adapter {
 			handler.logger.Info(fmt.Sprint("[handler ] Contract successfully saved to db!", (*c).CID))
 
 			uid := context.Get(r, "uid")
-			cn := eth.ContractNotification{}
+			cn := eth.ContractNotification{Type: "new"}
 			if cn.NotifyParty = c.Seller; c.Seller == uid {
 				cn.NotifyParty = c.Buyer
 			}
@@ -471,7 +471,7 @@ func CreateCarContract(handler *Handler, contracts chan<- interface{}) Adapter {
 	}
 }
 
-func SubmitCarContract(handler *Handler) Adapter {
+func SubmitCarContract(handler *Handler, contracts chan<- interface{}) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			v := mux.Vars(r)
@@ -510,6 +510,23 @@ func SubmitCarContract(handler *Handler) Adapter {
 				return
 			}
 
+			uid := context.Get(r, "uid")
+			cn := eth.ContractNotification{Type: "approved"}
+			if cn.NotifyParty = c.Seller; c.Seller == uid {
+				cn.NotifyParty = c.Buyer
+			}
+			uc, err := handler.db.FetchContractByCID(c.CID, uid.(string))
+			if err != nil {
+				handler.logger.Error(
+					fmt.Sprintf("[handler ] Can't fetch user for contract! cid: %v, err: %v", c.CID, err))
+				handler.status = http.StatusInternalServerError
+				handler.data = err
+				handler.ServeHTTP(w, r)
+				return
+			}
+
+			cn.Contract = *uc
+			contracts <- cn
 			handler.status = http.StatusOK
 			handler.data = tx
 			h.ServeHTTP(w, r)
@@ -793,7 +810,15 @@ func DownloadAvatar(handler *Handler, conf *config.Config) Adapter {
 				v := mux.Vars(r)
 				uid := v["u"]
 				// TODO: check
-				u := handler.db.GetUserByUID(uid)
+				u, err := handler.db.GetUserByUID(uid)
+				if err != nil {
+					handler.logger.Error(
+						fmt.Sprintf("[handler ] Error trying to fetch user: %v", err))
+					handler.status = http.StatusInternalServerError
+					handler.data = " Error trying to fetch user"
+					handler.ServeHTTP(w, r)
+					return
+				}
 				filename := u.Avatar
 				if len(filename) < 1 {
 					handler.logger.Error(
