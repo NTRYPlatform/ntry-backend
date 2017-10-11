@@ -46,6 +46,7 @@ func (n *Notary) muxServer() (router *mux.Router) {
 
 	router.HandleFunc("/subscribe/register/{uid}", ws.ServeRegWs).Methods("GET")
 	router.HandleFunc("/subscribe/contract/{uid}", ws.ServeContractWs).Methods("GET")
+	router.HandleFunc("/subscribe/contract/approved/{uid}", ws.ServeApprovedContractWs).Methods("GET")
 
 	return router
 }

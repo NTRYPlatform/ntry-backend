@@ -13,6 +13,7 @@ import (
 //TODO: create abstraction
 var regSubscribers = make(map[string]*websocket.Conn)
 var contractSubscribers = make(map[string]*websocket.Conn)
+var approvedContractSubscribers = make(map[string]*websocket.Conn)
 
 func WriteToRegisterChannel(register <-chan string, err chan<- struct{}) {
 
@@ -46,10 +47,19 @@ func WriteToContractChannel(contract <-chan interface{}, err chan<- struct{}) {
 			c, ok := m.(eth.ContractNotification)
 			// Send it out to the user it needs to go to
 			if ok {
-				if client, ok := contractSubscribers[c.NotifyParty]; ok {
-					err := client.WriteJSON(c)
-					if err != nil {
-						fmt.Printf("Error writing to connection for user: %s\n", m)
+				if c.Type == "new" {
+					if client, ok := contractSubscribers[c.NotifyParty]; ok {
+						err := client.WriteJSON(c)
+						if err != nil {
+							fmt.Printf("Error writing to connection for user: %s\n", m)
+						}
+					}
+				} else {
+					if client, ok := approvedContractSubscribers[c.NotifyParty]; ok {
+						err := client.WriteJSON(c)
+						if err != nil {
+							fmt.Printf("Error writing to connection for user: %s\n", m)
+						}
 					}
 				}
 			}
@@ -73,7 +83,6 @@ func ServeRegWs(w http.ResponseWriter, r *http.Request) {
 		// log.Println(err)
 		return
 	}
-	//TODO: figure out a way to unregister/close
 
 	regSubscribers[v["uid"]] = ws
 }
@@ -95,4 +104,22 @@ func ServeContractWs(w http.ResponseWriter, r *http.Request) {
 	//TODO: figure out a way to unregister/close
 
 	contractSubscribers[v["uid"]] = ws
+}
+
+func ServeApprovedContractWs(w http.ResponseWriter, r *http.Request) {
+	v := mux.Vars(r)
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		// log.Println(err)
+		return
+	}
+
+	approvedContractSubscribers[v["uid"]] = ws
 }
