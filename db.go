@@ -228,7 +228,7 @@ func (d *dbServer) SearchUserByName(name, uid string) ([]User, error) {
 	res := d.sess.Select("*").From(UserCollection).
 		Where("((first_name LIKE ? OR last_name LIKE ?) AND (`uid` != ? AND `uid` NOT IN (select s_uid from user_to_user where p_uid=?)))", c, c, uid, uid)
 	// defer res.Close()
-	err := res.All(&users)
+	err := res.OrderBy("first_name").All(&users)
 	return users, err
 }
 
@@ -237,7 +237,7 @@ func (d *dbServer) FetchUserContacts(uid string) ([]User, error) {
 	res := d.sess.Select("*").From(UserCollection).
 		Where("uid in (select s_uid from user_to_user where p_uid = ?) ", uid)
 	// defer res.Close() TODO: can't figure this out
-	err := res.All(&users)
+	err := res.OrderBy("first_name").All(&users)
 	return users, err
 }
 
