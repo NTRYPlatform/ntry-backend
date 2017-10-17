@@ -241,8 +241,8 @@ func (d *dbServer) FetchUserContacts(uid string) ([]User, error) {
 	return users, err
 }
 
-func (d *dbServer) GetContractByCID(cid int64) *eth.CarContract {
-	c := eth.CarContract{}
+func (d *dbServer) GetContractByCID(cid int64) *eth.CarContractWithTx {
+	c := eth.CarContractWithTx{}
 	res := d.collection(CarContractCollection).Find("cid = ?", cid)
 	defer res.Close()
 	err := res.One(&c)
@@ -254,7 +254,7 @@ func (d *dbServer) GetContractByCID(cid int64) *eth.CarContract {
 
 //TODO: This could change everything... edit so it would only change certain fields
 // UpdateContract updates the contract and returns error if any
-func (d *dbServer) UpdateContract(c *eth.CarContract) (err error) {
+func (d *dbServer) UpdateContract(c *eth.CarContractWithTx) (err error) {
 	prev := d.GetContractByCID(c.CID)
 	//TODO: technically else should throw error
 	if prev != nil {

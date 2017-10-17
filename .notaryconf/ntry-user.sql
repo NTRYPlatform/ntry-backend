@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS `car_contract` (
   `down_payment` int NOT NULL,
   `remaining_payment` int NOT NULL,
   `content_hash` varchar(66) DEFAULT "",
+  `tx_hash` varchar(66) DEFAULT "",
   `approved` bool DEFAULT false,
   `remaining_payment_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this
   `creation_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, # might want to change this

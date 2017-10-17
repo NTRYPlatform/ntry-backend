@@ -56,10 +56,52 @@ type CarContract struct {
 	LastUpdateDate *time.Time `db:"last_updated_date" json:"lastUpdateDate"`
 }
 
+type CarContractWithTx struct {
+	CID int64 `db:"cid" json:"cid"  binding:"required"`
+
+	Buyer string `db:"buyer" json:"buyer" required:"binding"`
+
+	Seller string `db:"seller" json:"seller" required:"binding"`
+
+	Year int `db:"year" json:"year" binding:"required"`
+
+	Make string `db:"make" json:"make" binding:"required"`
+
+	Model string `db:"model" json:"model" binding:"required"`
+
+	VIN string `db:"vin" json:"vin" binding:"required"`
+
+	Type string `db:"type" json:"type" binding:"required"`
+
+	Color string `db:"color" json:"color,omitempty"`
+
+	EngineNo string `db:"engine_no" json:"engineNo,omitempty"`
+
+	Mileage int `db:"mileage" json:"mileage"`
+
+	TotalPrice int `db:"total_price" json:"totalPrice"`
+
+	DownPayment int `db:"down_payment" json:"downPayment"`
+
+	RemainingPayment int `db:"remaining_payment" json:"remainingPayment"`
+
+	CreationDate *time.Time `db:"creation_date" json:"creationDate"`
+
+	RemainingPaymentDate *time.Time `db:"remaining_payment_date" json:"remainingPaymentDate"`
+
+	ContentHash string `db:"content_hash" json:"hash"`
+
+	TxHash string `db:"tx_hash" json:"txHash"`
+
+	Approved bool `db:"approved" json:"approved"`
+
+	LastUpdateDate *time.Time `db:"last_updated_date" json:"lastUpdateDate"`
+}
+
 type UserContracts struct {
-	UserName    string `db:"first_name,inline" json:"firstName"`
-	LastName    string `db:"last_name,inline" json:"lastName"`
-	CarContract `db:",inline"`
+	UserName          string `db:"first_name,inline" json:"firstName"`
+	LastName          string `db:"last_name,inline" json:"lastName"`
+	CarContractWithTx `db:",inline"`
 }
 
 type ContractNotification struct {
@@ -118,7 +160,7 @@ func GetContractFields() interface{} {
 	return f
 }
 
-func (c *CarContract) String() string {
+func (c *CarContractWithTx) String() string {
 	return fmt.Sprintf(`
 		CID: %v
 		Seller: %v
@@ -153,7 +195,7 @@ func (c *CarContract) String() string {
 		c.RemainingPaymentDate)
 }
 
-func (c *CarContract) Hash() string {
+func (c *CarContractWithTx) Hash() string {
 	h := sha256.New()
 	h.Write([]byte(c.String()))
 	return hex.EncodeToString(h.Sum(nil))
