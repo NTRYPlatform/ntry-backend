@@ -105,8 +105,9 @@ type UserContracts struct {
 }
 
 type ContractNotification struct {
-	Contract    UserContracts
-	NotifyParty string
+	Contract    UserContracts `json:"contract"`
+	NotifyParty string        `json:"-"`
+	Type        string        `json:"type"`
 }
 
 // GetContractFields

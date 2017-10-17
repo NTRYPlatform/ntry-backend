@@ -95,7 +95,7 @@ func (d *dbServer) Insert(anything interface{}, collection string) error {
 func (d *dbServer) UserExistsByUniqueField(user *User) (bool, error) {
 
 	res := d.collection(UserCollection).Find("uid = ? OR email_address = ?", (*user).UID, (*user).EmailAddress)
-	defer res.Close()
+	// defer res.Close()
 	if count, err := res.Count(); err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
 		return false, err
@@ -112,7 +112,7 @@ func (d *dbServer) collection(collection string) db.Collection {
 //TODO: This could change everything... edit so it would only change certain fields
 // UpdateUser updates user and returns error if any
 func (d *dbServer) UpdateUser(user *User) (err error) {
-	prev := d.GetUserByUID(user.UID)
+	prev, err := d.GetUserByUID(user.UID)
 	//TODO: technically else should throw error
 	if prev != nil {
 		if err := mergo.MergeWithOverwrite(prev, user); err != nil {
@@ -122,7 +122,7 @@ func (d *dbServer) UpdateUser(user *User) (err error) {
 
 		res := d.collection(UserCollection).Find("uid = ?", user.UID)
 		d.logger.Info(fmt.Sprintf("Query created: %v", res))
-		defer res.Close()
+		// defer res.Close()
 		err = res.Update(prev)
 		if err != nil {
 			d.logger.Error(fmt.Sprintf("Not cool! %v", err))
@@ -137,7 +137,7 @@ func (d *dbServer) LoginUserValidation(user *LoginUser) (*User, error) {
 	u := User{}
 	res := d.collection(UserCollection).Find("email_address = ?", user.EmailAddress)
 	d.logger.Debug(fmt.Sprintf("Query created: %v", res))
-	defer res.Close()
+	// defer res.Close()
 	err := res.One(&u)
 	if err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err))
@@ -191,21 +191,21 @@ func (d *dbServer) ChangeUserPassword(u *ChangePasswordUser) error {
 }
 
 //TODO: error
-func (d *dbServer) GetUserByUID(uid string) *User {
+func (d *dbServer) GetUserByUID(uid string) (*User, error) {
 	u := User{}
 	res := d.collection(UserCollection).Find("uid = ?", uid)
-	defer res.Close()
+	// defer res.Close()
 	err := res.One(&u)
 	if err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err.Error()))
 	}
-	return &u
+	return &u, err
 }
 
 func (d *dbServer) UpdatePassword(email, password string) error {
 	u := User{}
 	res := d.collection(UserCollection).Find("email_address = ?", email)
-	defer res.Close()
+	// defer res.Close()
 	err := res.One(&u)
 	if err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err.Error()))
@@ -228,7 +228,7 @@ func (d *dbServer) SearchUserByName(name, uid string) ([]User, error) {
 	res := d.sess.Select("*").From(UserCollection).
 		Where("((first_name LIKE ? OR last_name LIKE ?) AND (`uid` != ? AND `uid` NOT IN (select s_uid from user_to_user where p_uid=?)))", c, c, uid, uid)
 	// defer res.Close()
-	err := res.All(&users)
+	err := res.OrderBy("first_name").All(&users)
 	return users, err
 }
 
@@ -237,14 +237,14 @@ func (d *dbServer) FetchUserContacts(uid string) ([]User, error) {
 	res := d.sess.Select("*").From(UserCollection).
 		Where("uid in (select s_uid from user_to_user where p_uid = ?) ", uid)
 	// defer res.Close() TODO: can't figure this out
-	err := res.All(&users)
+	err := res.OrderBy("first_name").All(&users)
 	return users, err
 }
 
 func (d *dbServer) GetContractByCID(cid int64) *eth.CarContractWithTx {
 	c := eth.CarContractWithTx{}
 	res := d.collection(CarContractCollection).Find("cid = ?", cid)
-	defer res.Close()
+	// defer res.Close()
 	err := res.One(&c)
 	if err != nil {
 		d.logger.Error(fmt.Sprintf("Not cool! %v", err.Error()))
@@ -265,7 +265,7 @@ func (d *dbServer) UpdateContract(c *eth.CarContractWithTx) (err error) {
 
 		res := d.collection(CarContractCollection).Find("cid = ?", c.CID)
 		d.logger.Info(fmt.Sprintf("Query created: %v", res))
-		defer res.Close()
+		// defer res.Close()
 		err = res.Update(prev)
 		if err != nil {
 			d.logger.Error(fmt.Sprintf("Not cool! %v", err))

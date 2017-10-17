@@ -173,6 +173,7 @@ func (n *Notary) EthWatcher() {
 
 			if err := n.db.UpdateUser(u); err != nil {
 				n.logger.Error(fmt.Sprintf("Couldn't update user! %v", err.Error()))
+				n.ethClient.Events <- ethLog //Try to send again
 			} else {
 				out <- uid
 			}
