@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/NTRYPlatform/ntry-backend/eth"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -41,11 +42,6 @@ type User struct {
 
 	EthAddressVerification string `db:"eth_verification" json:"ethVerification,omitempty"`
 }
-
-// type UserContracts struct {
-// 	eth.CarContract `db:",inline"`
-// 	User            `db:",inline"`
-// }
 
 // UserContact the custom JWT token
 type UserContact struct {
@@ -168,4 +164,9 @@ func (u *User) MarshalJSON() ([]byte, error) {
 	x := user(*u)
 	x.Password = ""
 	return json.Marshal(x)
+}
+
+type UserContractsWrapper struct {
+	url string              `json:"etherscanURL"`
+	con []eth.UserContracts `json:"contracts"`
 }

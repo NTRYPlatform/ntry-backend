@@ -36,8 +36,8 @@ func (n *Notary) muxServer() (router *mux.Router) {
 	router.Handle("/contacts/get", Adapt(handler, GetUserContacts(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
 
 	router.Handle("/contracts/submit/{cid}", Adapt(handler, SubmitCarContract(handler, n.contracts), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
-	router.Handle("/contracts/get", Adapt(handler, GetUserContracts(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
-	router.Handle("/contracts/get/{criteria}", Adapt(handler, GetUserContracts(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
+	router.Handle("/contracts/get", Adapt(handler, GetUserContracts(handler, n.conf), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
+	router.Handle("/contracts/get/{criteria}", Adapt(handler, GetUserContracts(handler, n.conf), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
 	router.Handle("/contracts/fields", Adapt(handler, GetContractFieldsList(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
 	router.Handle("/contracts/add", Adapt(handler, CreateCarContract(handler, n.contracts), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")
 	router.Handle("/contracts/update", Adapt(handler, UpdateCarContract(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")

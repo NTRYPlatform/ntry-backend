@@ -1,5 +1,5 @@
 hash: ae21640732371b4206b98287e235933f100ebb054dc7d1dccf1db1fc3757c3b1
-updated: 2017-09-17T01:51:26.681187452+05:00
+updated: 2017-10-22T23:24:56.537218081+05:00
 imports:
 - name: github.com/aristanetworks/goarista
   version: 316cb1751909fe30bb23726dd0d7a5ea1e44673f
@@ -47,7 +47,9 @@ imports:
 - name: github.com/gorilla/mux
   version: 24fca303ac6da784b9e8269f724ddeb0b2eea5e7
 - name: github.com/gorilla/websocket
-  version: 6f34763140ed8887aed6a044912009832b4733d7
+  version: 71fa72d4842364bc5f74185f4161e0099ea3624a
+- name: github.com/imdario/mergo
+  version: 7fe0c75c13abdee74b09fcacef5ea1c6bba6a874
 - name: github.com/pborman/uuid
   version: e790cca94e6cc75c7064b1332e63811d4aae1a53
 - name: github.com/rcrowley/go-metrics
@@ -75,6 +77,8 @@ imports:
 - name: golang.org/x/crypto
   version: 40541ccb1c6e64c947ed6f606b8a6cb4b67d7436
   subpackages:
+  - bcrypt
+  - blowfish
   - pbkdf2
   - scrypt
 - name: golang.org/x/net

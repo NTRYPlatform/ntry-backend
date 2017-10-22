@@ -569,7 +569,7 @@ func UpdateCarContract(handler *Handler) Adapter {
 	}
 }
 
-func GetUserContracts(handler *Handler) Adapter {
+func GetUserContracts(handler *Handler, conf *config.Config) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			v := mux.Vars(r)
@@ -585,9 +585,11 @@ func GetUserContracts(handler *Handler) Adapter {
 				return
 			}
 
+			ucWrapper := UserContractsWrapper{conf.GetExplorerLink(), uc}
+
 			// Follow the normal flow
 			handler.status = http.StatusOK
-			handler.data = uc
+			handler.data = ucWrapper
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
 			return
