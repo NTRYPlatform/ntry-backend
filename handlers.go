@@ -575,7 +575,7 @@ func GetUserContracts(handler *Handler) Adapter {
 			v := mux.Vars(r)
 			q := v["criteria"]
 			u := context.Get(r, "uid")
-			users, err := handler.db.FetchUserContracts(u.(string), q)
+			uc, err := handler.db.FetchUserContracts(u.(string), q)
 			if err != nil {
 				handler.logger.Error(
 					fmt.Sprintf("[handler ] Failed to fetch user contracts with query: %v", u.(string)))
@@ -587,7 +587,7 @@ func GetUserContracts(handler *Handler) Adapter {
 
 			// Follow the normal flow
 			handler.status = http.StatusOK
-			handler.data = users
+			handler.data = uc
 			w.Header().Set("Content-Type", "application/json")
 			h.ServeHTTP(w, r)
 			return

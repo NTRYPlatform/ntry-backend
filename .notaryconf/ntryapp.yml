@@ -12,6 +12,7 @@ ethDataDir: /tmp/ethereum_dev_mode
 ethPvtKeyFile: UTC--2017-10-10T12-35-53.439893654Z--d7dc4affe41e54bed1414d6897b85ec0603ba0fc
 ethPassphrase: thisone
 avatarDir: /tmp/
+explorerLink: https://rinkeby.etherscan.io/tx/
 db:
   name: ntry
   user: root

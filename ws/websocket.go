@@ -12,25 +12,19 @@ import (
 )
 
 //TODO: create abstraction
-<<<<<<< HEAD
-=======
-var regSubscribers = make(map[string]*websocket.Conn)
-var contractSubscribers = make(map[string]*websocket.Conn)
-var approvedContractSubscribers = make(map[string]*websocket.Conn)
->>>>>>> yg-dev
-
 type ChannelSub struct {
 	sync.Mutex
 	subscribers map[string]*websocket.Conn
 }
 
 type Channels struct {
-	regChannel ChannelSub
-	conChannel ChannelSub
+	regChannel      ChannelSub
+	conChannel      ChannelSub
+	approvedChannel ChannelSub
 }
 
 func NewChannels() *Channels {
-	ch := Channels{regChannel: ChannelSub{subscribers: make(map[string]*websocket.Conn)}, conChannel: ChannelSub{subscribers: make(map[string]*websocket.Conn)}}
+	ch := Channels{regChannel: ChannelSub{subscribers: make(map[string]*websocket.Conn)}, conChannel: ChannelSub{subscribers: make(map[string]*websocket.Conn)}, approvedChannel: ChannelSub{subscribers: make(map[string]*websocket.Conn)}}
 	return &ch
 }
 
@@ -44,7 +38,10 @@ func (ch *Channels) WriteToRegisterChannel(register <-chan string, err chan<- st
 		select {
 		case m := <-register:
 			// Send it out to the user it needs to go to
-			if client, ok := ch.regChannel.subscribers[m]; ok {
+			ch.regChannel.Lock()
+			client, ok := ch.regChannel.subscribers[m]
+			ch.regChannel.Unlock()
+			if ok {
 				err := client.WriteJSON("{\"registered\":true, \"uid\":\"" + m + "\"}")
 				if err != nil {
 					fmt.Printf("Error writing to connection for user: %s\n", m)
@@ -65,30 +62,29 @@ func (ch *Channels) WriteToContractChannel(contract <-chan interface{}, err chan
 	for {
 		select {
 		case m := <-contract:
-			fmt.Printf("%v\n", m)
+			// fmt.Printf("%v\n", m)
 			c, ok := m.(eth.ContractNotification)
 			// Send it out to the user it needs to go to
 			if ok {
-<<<<<<< HEAD
-				if client, ok := ch.conChannel.subscribers[c.NotifyParty]; ok {
-					err := client.WriteJSON(c.Contract)
-					if err != nil {
-						fmt.Printf("Error writing to connection for user: %s\n", m)
-=======
 				if c.Type == "new" {
-					if client, ok := contractSubscribers[c.NotifyParty]; ok {
+					ch.conChannel.Lock()
+					client, ok := ch.conChannel.subscribers[c.NotifyParty]
+					ch.conChannel.Unlock()
+					if ok {
 						err := client.WriteJSON(c)
 						if err != nil {
 							fmt.Printf("Error writing to connection for user: %s\n", m)
 						}
 					}
 				} else {
-					if client, ok := approvedContractSubscribers[c.NotifyParty]; ok {
+					ch.approvedChannel.Lock()
+					client, ok := ch.approvedChannel.subscribers[c.NotifyParty]
+					ch.approvedChannel.Unlock()
+					if ok {
 						err := client.WriteJSON(c)
 						if err != nil {
 							fmt.Printf("Error writing to connection for user: %s\n", m)
 						}
->>>>>>> yg-dev
 					}
 				}
 			}
@@ -112,14 +108,9 @@ func (ch *Channels) ServeRegWs(w http.ResponseWriter, r *http.Request) {
 		// log.Println(err)
 		return
 	}
-<<<<<<< HEAD
 	ch.regChannel.Lock()
 	ch.regChannel.subscribers[v["uid"]] = ws
 	ch.regChannel.Unlock()
-=======
-
-	regSubscribers[v["uid"]] = ws
->>>>>>> yg-dev
 }
 
 func (ch *Channels) ServeContractWs(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +133,7 @@ func (ch *Channels) ServeContractWs(w http.ResponseWriter, r *http.Request) {
 	ch.conChannel.Unlock()
 }
 
-func ServeApprovedContractWs(w http.ResponseWriter, r *http.Request) {
+func (ch *Channels) ServeApprovedContractWs(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -157,5 +148,7 @@ func ServeApprovedContractWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	approvedContractSubscribers[v["uid"]] = ws
+	ch.approvedChannel.Lock()
+	ch.approvedChannel.subscribers[v["uid"]] = ws
+	ch.approvedChannel.Unlock()
 }

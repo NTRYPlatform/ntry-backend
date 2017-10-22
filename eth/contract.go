@@ -3,10 +3,13 @@ package eth
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
 	"time"
+
+	"github.com/NTRYPlatform/ntry-backend/config"
 )
 
 type ContractFields struct {
@@ -200,4 +203,12 @@ func (c *CarContractWithTx) Hash() string {
 	h := sha256.New()
 	h.Write([]byte(c.String()))
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+//TODO: fix this
+func (uc *UserContracts) MarshalJSON(conf *config.Config) ([]byte, error) {
+	type ucontract UserContracts // prevent recursion
+	x := ucontract(*uc)
+	x.TxHash = conf.GetExplorerLink() + x.TxHash
+	return json.Marshal(x)
 }

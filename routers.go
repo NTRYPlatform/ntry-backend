@@ -43,14 +43,9 @@ func (n *Notary) muxServer() (router *mux.Router) {
 	router.Handle("/contracts/update", Adapt(handler, UpdateCarContract(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("POST")
 	router.Handle("/contracts/get/{cid}", Adapt(handler, GetContract(handler), ValidateTokenMiddleware(handler, n.conf), Logging(handler))).Methods("GET")
 
-<<<<<<< HEAD
 	router.HandleFunc("/subscribe/register/{uid}", n.wsChannels.ServeRegWs).Methods("GET")
 	router.HandleFunc("/subscribe/contract/{uid}", n.wsChannels.ServeContractWs).Methods("GET")
-=======
-	router.HandleFunc("/subscribe/register/{uid}", ws.ServeRegWs).Methods("GET")
-	router.HandleFunc("/subscribe/contract/{uid}", ws.ServeContractWs).Methods("GET")
-	router.HandleFunc("/subscribe/contract/approved/{uid}", ws.ServeApprovedContractWs).Methods("GET")
->>>>>>> yg-dev
+	router.HandleFunc("/subscribe/contract/approved/{uid}", n.wsChannels.ServeApprovedContractWs).Methods("GET")
 
 	return router
 }
