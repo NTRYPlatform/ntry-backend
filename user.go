@@ -167,6 +167,6 @@ func (u *User) MarshalJSON() ([]byte, error) {
 }
 
 type UserContractsWrapper struct {
-	url string              `json:"etherscanURL"`
-	con []eth.UserContracts `json:"contracts"`
+	URL       string              `json:"etherscanURL"`
+	Contracts []eth.UserContracts `json:"contracts"`
 }
